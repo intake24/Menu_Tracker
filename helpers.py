@@ -10,6 +10,9 @@ from time import sleep
 
 import pandas as pd
 import requests
+
+import undetected_chromedriver as uc
+
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -32,27 +35,36 @@ def setup_driver(download_dir: str | None = None):
     ua = UserAgent()
     random_user_agent = ua.random
     
-    options = Options()
-    options.add_argument('--headless=new')
+    # options = Options()
+    # options.add_argument('--headless=new')
+    # options.add_argument('--no-sandbox')
+    # options.add_argument('--disable-dev-shm-usage')
+    # options.add_argument(f"--user-agent={random_user_agent}")
+    # options.add_argument("--disable-blink-features=AutomationControlled")
+    # options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # options.add_experimental_option('useAutomationExtension', False)
+    # # Configure downloads if requested
+    # if download_dir:
+    #     prefs = {
+    #         "download.default_directory": download_dir,
+    #         "download.prompt_for_download": False,
+    #         "download.directory_upgrade": True,
+    #         # Force Chrome to download PDFs instead of opening in viewer
+    #         "plugins.always_open_pdf_externally": True,
+    #     }
+    #     options.add_experimental_option("prefs", prefs)
+    
+    # service = Service(ChromeDriverManager().install())
+    # driver = webdriver.Chrome(service=service, options=options)
+    
+    options = uc.ChromeOptions()
+    options.headless = True 
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument(f"--user-agent={random_user_agent}")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    # Configure downloads if requested
-    if download_dir:
-        prefs = {
-            "download.default_directory": download_dir,
-            "download.prompt_for_download": False,
-            "download.directory_upgrade": True,
-            # Force Chrome to download PDFs instead of opening in viewer
-            "plugins.always_open_pdf_externally": True,
-        }
-        options.add_experimental_option("prefs", prefs)
-    
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+
+    driver = uc.Chrome(options=options)
     
     # Remove webdriver property
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
@@ -87,9 +99,6 @@ def setup_driver_colab():
         import google_colab_selenium as gs
     except ImportError:
         raise ImportError("google_colab_selenium is required for Colab environment. Install with: !pip install google_colab_selenium")
-    
-    from fake_useragent import UserAgent
-    from selenium.webdriver.chrome.options import Options
     
     # Initialize fake user agent
     ua = UserAgent()
