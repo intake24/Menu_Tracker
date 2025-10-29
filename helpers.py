@@ -569,3 +569,45 @@ def greene_king_download(rest_name, id, url, folder):
                 url_pdf = url + value
                 path_temp = os.path.join(path, url_pdf.split('/')[-1]) # path to save the PDF file
                 PDFDownloader(url_pdf, path_temp)
+
+def try_click_accept_cookies(driver) -> None:
+    """Attempt to accept cookies banner to unblock interactions."""
+    try:
+        print("Trying to accept cookies banner if present...")
+        # Try several common selectors/texts
+        candidates = [
+            (By.XPATH, "//button[contains(translate(., 'ACCEPT', 'accept'), 'accept')]") ,
+            (By.XPATH, "//a[contains(translate(., 'ACCEPT', 'accept'), 'accept')]") ,
+            (By.XPATH, "//button[contains(., 'ACCEPT ALL COOKIES') or contains(., 'Accept All Cookies')]") ,
+        ]
+        for by, sel in candidates:
+            elems = driver.find_elements(by, sel)
+            if elems:
+                try:
+                    elems[0].click()
+                    WebDriverWait(driver, 2).until(lambda d: True)
+                    print("Cookies banner accepted.")
+                    break
+                except Exception:
+                    print("Failed to accept cookies banner.")
+                    continue
+    except Exception:
+        pass
+
+def get_visible_text(el, driver) -> str:
+    """Return best-effort visible text from an element (text, innerText, textContent)."""
+    try:
+        t = (el.text or "").strip()
+        if t:
+            return t
+    except Exception:
+        pass
+    try:
+        t = driver.execute_script(
+            "return (arguments[0].innerText || arguments[0].textContent || '').trim();", el
+        )
+        if t:
+            return t
+    except Exception:
+        pass
+    return ""
