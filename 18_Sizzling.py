@@ -1,324 +1,500 @@
-import re
 import json
+import logging
 from datetime import date
+from time import sleep
 
-import requests
 import pandas as pd
-from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 
 from define_collection_wave import folder
-from helpers import create_folder, setup_driver
+from helpers import create_folder, setup_driver, clean_text, try_click_accept_cookies, get_visible_text
 
-# Output paths (match project convention like 14_CaffeNero.py)
-path_sizzling = create_folder('18_Sizzling', folder)
-file_sizzling_json = path_sizzling + '/sizzling_items.json'
-file_sizzling_csv = path_sizzling + '/sizzling_items.csv'
+path_out = create_folder('19_Sizzling', folder)
+file_json = path_out + '/sizzling_nutrition.json'
+file_csv = path_out + '/sizzling_nutrition.csv'
+REST_NAME = "Sizzling Pubs"
 
-# Target Sizzling Pubs menu pages ONLY (no smartchef)
-SIZZLING_MENU_PAGES = {
-    'Main': 'https://www.sizzlingpubs.co.uk/food-menu',
-    'Breakfast': 'https://www.sizzlingpubs.co.uk/breakfastmenu',
-    'Kids': 'https://www.sizzlingpubs.co.uk/kidsmenu',
-    'Buffet': 'https://www.sizzlingpubs.co.uk/buffetmenu',
-    'Drinks': 'https://www.sizzlingpubs.co.uk/drink',
-    'Sunday': 'https://www.sizzlingpubs.co.uk/sunday-menu',
-}
+START_URL = 'https://www.sizzlingpubs.co.uk/food#'
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
-}
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.formatter = logging.Formatter('%(message)s')
 
-
-def _flatten_jsonld(node):
-    """Yield all dict nodes inside a json-ld structure."""
-    if isinstance(node, dict):
-        yield node
-        for v in node.values():
-            yield from _flatten_jsonld(v)
-    elif isinstance(node, list):
-        for it in node:
-            yield from _flatten_jsonld(it)
-
-
-def parse_jsonld_items(html: str, *, menu_name: str, source_url: str) -> list[dict]:
-    """Parse JSON-LD for Menu/MenuSection/MenuItem/Product entries.
-
-    Returns minimal nutrition (kcal) if present and captures name/description.
-    Allergens are rarely exposed in JSON-LD on these pages but we include placeholders.
-    """
-    items: list[dict] = []
-    soup = BeautifulSoup(html, 'html.parser')
-    for script in soup.find_all('script', attrs={'type': 'application/ld+json'}):
-        try:
-            data = json.loads(script.string or '{}')
-        except Exception:
-            continue
-        for obj in _flatten_jsonld(data):
-            t = obj.get('@type')
-            if not t:
-                continue
-            if isinstance(t, list):
-                types = set(t)
-            else:
-                types = {t}
-            if {'MenuItem', 'Product'} & types:
-                name = obj.get('name')
-                desc = obj.get('description')
-                nutrition = obj.get('nutrition') or {}
-                kcal = nutrition.get('calories') or nutrition.get('calorieContent')
-                # Normalise '123 kcal' → '123'
-                if isinstance(kcal, str):
-                    m = re.search(r"(\d[\d,]*)", kcal)
-                    kcal = m.group(1).replace(',', '') if m else kcal
-
-                items.append({
-                    'collection_date': date.today().strftime("%b-%d-%Y"),
-                    'rest_name': 'Sizzling Pubs',
-                    'menu_id': None,
-                    'menu_section': menu_name,
-                    'item_name': name,
-                    'item_description': desc,
-                    'allergens': None,  # not in JSON-LD typically
-                    'kj': None,
-                    'kcal': kcal,
-                    'fat': nutrition.get('fatContent'),
-                    'satfat': nutrition.get('saturatedFatContent'),
-                    'carb': nutrition.get('carbohydrateContent'),
-                    'sugar': nutrition.get('sugarContent'),
-                    'protein': nutrition.get('proteinContent'),
-                    'salt': nutrition.get('sodiumContent') or nutrition.get('salt'),
-                    'source_url': source_url,
-                })
-    return items
-
-def _try_click_accept_cookies(driver) -> None:
-    """Attempt to accept cookies banner to unblock interactions."""
+    
+def _set_driver_timeouts(driver):
+    """Configure driver timeouts to reduce flaky transport timeouts while avoiding long stalls."""
     try:
-        # Try several common selectors/texts
-        candidates = [
-            (By.XPATH, "//button[contains(translate(., 'ACCEPT', 'accept'), 'accept')]") ,
-            (By.XPATH, "//a[contains(translate(., 'ACCEPT', 'accept'), 'accept')]") ,
-            (By.XPATH, "//button[contains(., 'ACCEPT ALL COOKIES') or contains(., 'Accept All Cookies')]") ,
-        ]
-        for by, sel in candidates:
-            elems = driver.find_elements(by, sel)
-            if elems:
-                try:
-                    elems[0].click()
-                    WebDriverWait(driver, 2).until(lambda d: True)
-                    break
-                except Exception:
-                    continue
-    except Exception:
+        driver.set_page_load_timeout(20)
+        driver.set_script_timeout(5)
+    except Exception as e:
+        logger.debug(f"Could not set timeouts: {e}")
         pass
 
+def safe_get(driver, url: str, wait_locator=None, wait_timeout: int = 6) -> 'WebDriver':
+    """
+    Navigate robustly to url.
+    - On page-load TimeoutException, issue window.stop() and proceed.
+    - On transport read timeout or driver hang, restart the driver, re-apply timeouts, accept cookies, and retry once.
+    Returns the (possibly restarted) driver.
+    """
 
-def _extract_from_dialog(driver) -> dict:
-    """Best-effort extraction of nutrition/allergen details from an open modal/dialog."""
-    details = {
+    def _navigate(drv):
+        try:
+            drv.get(url)
+        except TimeoutException:
+            # Stop loading and proceed to wait on required DOM instead of failing
+            try:
+                drv.execute_script("window.stop();")
+            except Exception:
+                pass
+        # Optionally wait for a page element that signals readiness
+        if wait_locator:
+            try:
+                WebDriverWait(drv, wait_timeout).until(EC.presence_of_element_located(wait_locator))
+            except Exception:
+                # Best-effort wait; do not fail navigation outright
+                logger.debug("Wait for locator timed out; proceeding anyway…")
+                pass
+
+    try:
+        _navigate(driver)
+        return driver
+    except WebDriverException as e:
+        msg = str(e)
+        if ("Read timed out" in msg) or ("HTTPConnectionPool" in msg) or ("ERR_CONNECTION" in msg):
+            # Restart the driver and retry once
+            try:
+                logger.warning("Transport timeout detected, restarting driver and retrying navigation…")
+                driver.quit()
+            except Exception:
+                logger.warning("Could not quit driver cleanly, proceeding anyway…")
+                pass
+            new_driver = setup_driver()
+            _set_driver_timeouts(new_driver)
+            try_click_accept_cookies(new_driver)
+            _navigate(new_driver)
+            logger.info("Re-created driver and retry successful")
+            return new_driver
+        # Unexpected error; bubble up
+        raise
+
+
+def _parse_nutrition_table_from(container, driver) -> dict:
+    """Parse a two-column nutrition table within the given container. Returns label->value mapping."""
+    data = {}
+    # Try common nutrition table candidates near the container
+    table_selectors = [
+        ".//table[contains(@class,'Nutrition') or contains(@class,'nutrition') or contains(@class,'Nutri')]",
+        ".//table",
+    ]
+    table = None
+    # If the container itself is a table, parse it directly
+    try:
+        if hasattr(container, 'tag_name') and (container.tag_name or '').lower() == 'table':
+            table = container
+    except Exception:
+        pass
+    if table is not None:
+        try:
+            logger.debug("Found nutrition table directly from container tag")
+        except Exception:
+            pass
+    for xp in table_selectors:
+        try:
+            logger.debug(f"Searching for table with XPath: {xp}")
+            tbls = container.find_elements(By.XPATH, xp)
+            if tbls:
+                table = tbls[0]
+                logger.debug("Nutrition table found via XPath selector")
+                break
+        except Exception:
+            continue
+    if not table:
+        try:
+            logger.debug("No nutrition table found in container")
+        except Exception:
+            pass
+        return data
+    try:
+        rows = table.find_elements(By.XPATH, ".//tr")
+        logger.debug(f"Parsing nutrition table rows: {len(rows)}")
+        for row in rows:
+            try:
+                # Prefer th/td pair, else td/td
+                cells = row.find_elements(By.XPATH, ".//th|.//td")
+                if len(cells) < 2:
+                    continue
+                for cell in cells:
+                    raw_cell_text = clean_text(get_visible_text(cell, driver))
+                    label = raw_cell_text.split(':')[0].strip().lower()
+                    value = raw_cell_text.split(':')[1].strip().lower() if ':' in raw_cell_text else ''
+                    if label:
+                        data[label] = value
+            except Exception:
+                continue
+    except Exception:
+        pass
+    try:
+        logger.debug(f"Parsed nutrition labels: {list(data.keys())}")
+    except Exception:
+        pass
+    return data
+
+
+def _extract_nut_info_from_card(card, driver) -> dict:
+    """Within a food card, expand Allergens and Nutritional Information sections and capture data.
+
+    - Click div.AllergenInfo__expandable then scrape allergen text within the card
+    - Click div.NutritionalInfo__expandable then parse table.NutritionalInfo__table.NutritionalInfo__table--small
+    """
+    info = {
         'allergens': None,
-        'kj': None,
         'kcal': None,
+        'kj': None,
         'fat': None,
         'satfat': None,
         'carb': None,
         'sugar': None,
         'protein': None,
         'salt': None,
+        '__raw_nutrition__': {},
     }
+
+    # Ensure card is visible
     try:
-        # Wait for a dialog/modal; try multiple patterns
-        dialog = None
-        patterns = [
-            (By.XPATH, "//*[@role='dialog']"),
-            (By.XPATH, "//*[contains(@class,'modal') or contains(@class,'Dialog')]")
-        ]
-        for by, xp in patterns:
-            try:
-                dialog = WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((by, xp))
-                )
-                if dialog:
-                    break
-            except TimeoutException:
-                continue
-        if not dialog:
-            return details
-
-        text = dialog.text or ''
-        # kcal/kJ
-        m_kcal = re.search(r"(\d[\d,]*)\s*kcal", text, flags=re.I)
-        if m_kcal:
-            details['kcal'] = m_kcal.group(1).replace(',', '')
-        m_kj = re.search(r"(\d[\d,]*)\s*k[jJ]", text)
-        if m_kj:
-            details['kj'] = m_kj.group(1).replace(',', '')
-
-        # Common macro labels; capture first number and units
-        def cap(label, key):
-            m = re.search(label + r"\s*:?\s*([\d,.]+\s*[a-zA-Z%/]*)", text, flags=re.I)
-            if m:
-                details[key] = m.group(1).strip()
-        cap(r"fat", 'fat')
-        cap(r"saturates|sat\.?\s*f(at)?", 'satfat')
-        cap(r"carb(ohydrate|s)?", 'carb')
-        cap(r"sugar(s)?", 'sugar')
-        cap(r"protein", 'protein')
-        cap(r"salt|sodium", 'salt')
-
-        # Allergens
-        m_all = re.search(r"allergen[s]?:?\s*(.+)", text, flags=re.I)
-        if m_all:
-            # stop at newline
-            details['allergens'] = m_all.group(1).split('\n')[0].strip()
-
-        # Try close dialog to proceed
-        for sel in [
-            (By.XPATH, "//button[@aria-label='Close' or contains(., 'Close')]"),
-            (By.XPATH, "//*[contains(@class,'close') and (self::button or self::a)]"),
-        ]:
-            try:
-                btns = dialog.find_elements(*sel)
-                if btns:
-                    btns[0].click()
-                    break
-            except Exception:
-                continue
+        logger.debug("Scrolling card into view")
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'});", card)
+        WebDriverWait(driver, 5).until(
+            EC.presence_of_all_elements_located(card )
+        )
     except Exception:
         pass
-    return details
 
-
-def parse_menu_with_selenium(menu_name: str, url: str) -> list[dict]:
-    driver = setup_driver()
-    records: list[dict] = []
+    # Capture expected title from the card (to validate modal content)
+    expected_title = None
     try:
-        driver.get(url)
-        _try_click_accept_cookies(driver)
+        expected_title = _extract_food_name_from_card(card, driver)
+    except Exception:
+        expected_title = None
 
-        # Wait for content to render; headings should appear
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'h3, h4'))
-        )
-        headings = driver.find_elements(By.CSS_SELECTOR, 'h3, h4')
-        seen_names = set()
-        for h in headings:
+    # Click on the card to open details (often a modal)
+    try:
+        # print heading of the current card 
+        logger.debug(f"Current card heading: {expected_title}")
+        logger.debug("Clicking on card to open details (JS)")
+        driver.execute_script("arguments[0].click();", card)
+        sleep(0.4)
+    except Exception:
+        pass
+
+    # Locate the correct, visible modal for this card by matching its heading
+    modal_card = None
+    logger.debug("Waiting for visible modal to match current card heading…")
+    candidates = driver.find_elements(By.XPATH, "//div[contains(@class,'Modal__modal Modal-menu-item')]")
+    logger.debug(f"Found {len(candidates)} candidate modals")
+    for cand in candidates:
+        modal_card = cand
+        heading = modal_card.find_element(By.XPATH, ".//h1 | .//h2 | .//h3 | .//h4")
+        htxt = (heading.text or heading.get_attribute('innerText') or '').strip()
+    logger.debug(f"Modal heading: {htxt}")
+
+    # Expand Allergens section within the card
+    try:
+        allergen_toggle = None
+        try:
+            allergen_toggle = modal_card.find_element(By.CSS_SELECTOR, "div.AllergenInfo__expandable")
+        except Exception:
+            # Fallback XPath
             try:
-                name = (h.text or '').strip()
-                if not name or len(name) < 2:
-                    continue
-                # Heuristic: find kcal near heading
-                kcal = None
+                allergen_toggle = modal_card.find_element(By.XPATH, ".//div[contains(@class,'AllergenInfo__expandable')]")
+            except Exception:
+                allergen_toggle = None
+        logger.debug(f"Allergen toggle present: {bool(allergen_toggle)}")
+        if allergen_toggle:
+            try:
+                logger.debug("Clicking allergen toggle (JS)")
+                driver.execute_script("arguments[0].click();", allergen_toggle)
+            except Exception:
                 try:
-                    container = h
-                    for _ in range(3):
-                        container = container.find_element(By.XPATH, "..")
-                    txt = container.text
-                    m = re.search(r"(\d[\d,]*)\s*kcal", txt, flags=re.I)
-                    if m:
-                        kcal = m.group(1).replace(',', '')
+                    logger.debug("Clicking allergen toggle (native)")
+                    allergen_toggle.click()
                 except Exception:
                     pass
-
-                # Attempt to open details modal and extract nutrition/allergens
-                details = {
-                    'allergens': None, 'kj': None, 'kcal': kcal,
-                    'fat': None, 'satfat': None, 'carb': None, 'sugar': None, 'protein': None, 'salt': None,
-                }
-                clicked = False
-                # Click nearest clickable ancestor
+            sleep(0.4)
+            # After expand, try to capture allergen text from typical containers within the card
+            # Accumulate allergen labels across all candidate containers, de-duplicated
+            collected_allergens = []
+            seen_allergens = set()
+            candidates = [
+                ".//div[contains(@class,'AllergenInfo__allergens__pills__wrapper')]",
+                # ".//*[contains(@class,'AllergenInfo__content')]",
+                # ".//*[contains(@class,'AllergenInfo__list')]",
+                # ".//*[contains(translate(@class, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'allergen') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'allergen')]",
+            ]
+            for xp in candidates:
                 try:
-                    clickable = h.find_element(By.XPATH, "ancestor::*[self::a or self::button][1]")
-                    driver.execute_script("arguments[0].click();", clickable)
-                    clicked = True
+                    logger.debug(f"Searching allergen content with XPath: {xp}")
+                    els = allergen_toggle.find_elements(By.XPATH, xp)
+                    logger.debug(f"Found {len(els)} allergen content elements")
+                    for el in els:
+                        # Prefer collecting pill-like descendants to build a concise list
+                        try:
+                            pill_nodes = el.find_elements(
+                                By.XPATH,
+                                ".//*[contains(translate(@class,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pill') or self::li or self::span]"
+                            )
+                            logger.debug(f"Found {len(pill_nodes)} allergen pill nodes")
+                        except Exception:
+                            pill_nodes = []
+                        texts = []
+                        for pn in pill_nodes:
+                            t = clean_text(get_visible_text(pn, driver))
+                            if t and t not in ('Contains', 'Allergens', 'May contain'):
+                                texts.append(t)
+                        # Deduplicate while preserving order
+                        if texts:
+                            dedup = list(dict.fromkeys(texts))
+                            for token in dedup:
+                                if token not in seen_allergens:
+                                    seen_allergens.add(token)
+                                    collected_allergens.append(token)
+                    
+                    # if info['allergens']:
+                    #     break
                 except Exception:
-                    # try clicking the heading itself
-                    try:
-                        h.click()
-                        clicked = True
-                    except Exception:
-                        pass
-
-                if clicked:
-                    extracted = _extract_from_dialog(driver)
-                    # Prefer dialog kcal if found
-                    for k, v in extracted.items():
-                        if v is not None:
-                            details[k] = v
-
-                # Avoid duplicates (same name within menu)
-                key = (menu_name, name)
-                if key in seen_names:
                     continue
-                seen_names.add(key)
+            if collected_allergens:
+                txt_joined = ", ".join(collected_allergens)
+                if len(txt_joined) > 3:
+                    info['allergens'] = txt_joined
+                    logger.debug(f"Allergen pills captured: {txt_joined}")
+    except Exception:
+        pass
 
-                records.append({
-                    'collection_date': date.today().strftime("%b-%d-%Y"),
-                    'rest_name': 'Sizzling Pubs',
-                    'menu_id': None,
-                    'menu_section': menu_name,
-                    'item_name': name,
-                    'item_description': None,
-                    'allergens': details['allergens'],
-                    'kj': details['kj'],
-                    'kcal': details['kcal'],
-                    'fat': details['fat'],
-                    'satfat': details['satfat'],
-                    'carb': details['carb'],
-                    'sugar': details['sugar'],
-                    'protein': details['protein'],
-                    'salt': details['salt'],
-                    'source_url': url,
-                })
-            except Exception:
-                continue
-    finally:
+    # Expand Nutritional Information and parse the nutrition table
+    try:
+        nut_toggle = None
         try:
-            driver.quit()
+            nut_toggle = modal_card.find_element(By.CSS_SELECTOR, "div.NutritionalInfo__expandable")
+        except Exception:
+            try:
+                nut_toggle = modal_card.find_element(By.XPATH, ".//div[contains(@class,'NutritionalInfo__expandable')]")
+            except Exception:
+                nut_toggle = None
+        logger.debug(f"Nutritional toggle present: {bool(nut_toggle)}")
+        if nut_toggle:
+            try:
+                logger.debug("Clicking nutrition toggle (JS)")
+                driver.execute_script("arguments[0].click();", nut_toggle)
+            except Exception:
+                try:
+                    logger.debug("Clicking nutrition toggle (native)")
+                    nut_toggle.click()
+                except Exception:
+                    pass
+            sleep(0.3)
+        # Parse nutrition table within the card
+        raw_map = {}
+        # Prefer the small NutritionalInfo table first
+        try:
+            tbl = nut_toggle.find_element(By.CSS_SELECTOR, "table.NutritionalInfo__table.NutritionalInfo__table--small")
+            logger.debug("Found small nutrition table via CSS")
+            raw_map = _parse_nutrition_table_from(tbl, driver)
+        except Exception:
+            # Fallback: any NutritionalInfo table under the card
+            try:
+                tbl = nut_toggle.find_element(By.XPATH, ".//table[contains(@class,'NutritionalInfo__table')]")
+                logger.debug("Found nutrition table via XPath fallback")
+                raw_map = _parse_nutrition_table_from(tbl, driver)
+            except Exception:
+                logger.info("Nutrition table not found, skipping…")
+
+        info['__raw_nutrition__'] = raw_map or {}
+        if raw_map:
+            def pick(keys):
+                for k in keys:
+                    for rk in raw_map.keys():
+                        if k.lower() in rk.lower():
+                            return raw_map[rk]
+                return None
+            info['kcal'] = info['kcal'] or pick(['kcal', 'calorie'])
+            info['kj'] = info['kj'] or pick(['kj'])
+            info['fat'] = info['fat'] or pick(['fat'])
+            info['satfat'] = info['satfat'] or pick(['saturates', 'saturated'])
+            info['carb'] = info['carb'] or pick(['carb', 'carbohydrate'])
+            info['sugar'] = info['sugar'] or pick(['sugar'])
+            info['protein'] = info['protein'] or pick(['protein'])
+            info['salt'] = info['salt'] or pick(['salt', 'sodium'])
+            logger.debug("Nutrition fields mapped: %s", {k: v for k, v in info.items() if k in ['kcal','kj','fat','satfat','carb','sugar','protein','salt'] and v})
+    except Exception:
+        pass
+
+    # Best-effort: close the modal to ensure next loop opens fresh content
+    try:
+        logger.debug("Attempting to close modal/menu-item card")
+        close_el = card.find_element(By.XPATH, "//*[contains(@class,'Modal__box')]")
+        if close_el:
+            logger.debug("Close element found")
+        else:
+            logger.debug("Close element not found")
+        try:
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", close_el)
         except Exception:
             pass
-    return records
-
-
-def scrape_sizzling() -> list[dict]:
-    all_items: list[dict] = []
-    for menu_name, url in SIZZLING_MENU_PAGES.items():
-        # Selenium-first approach to allow interacting with per-dish details
-        print(f"Processing menu: {menu_name} ({url})")
-        items = parse_menu_with_selenium(menu_name, url)
-        # If interaction failed to find anything, fall back to static parsing
-        if not items:
+        try:
+            driver.execute_script("arguments[0].click();", close_el)
+            logger.debug("Closed modal (JS)")
+        except Exception:
             try:
-                r = requests.get(url, headers=HEADERS, timeout=40)
-                if r.status_code == 200:
-                    html = r.text
-                    items = parse_jsonld_items(html, menu_name=menu_name, source_url=url)
+                close_el.click()
+                logger.debug("Closed modal (native)") 
             except Exception:
-                pass
-        print(f"{menu_name}: found {len(items)} items")
-        all_items.extend(items)
-    return all_items
+                logger.warning("Failed to close modal")
+                return
+        # check whether modal is closed
+        try:
+            logger.debug("Checking if modal is closed")
+            WebDriverWait(driver, 0.5).until(
+                EC.invisibility_of_element_located(
+                    (By.XPATH, "//*[contains(@class,'Modal') or contains(@class,'modal-menu-item')]")
+                )
+            )
+            logger.debug("Modal may still be open; proceeding anyway")
+        except Exception:
+            logger.debug("Modal closed confirmed")
+        sleep(0.2)
+    except Exception as e:
+        logger.warning(f"Failed to close modal: {e}")
+        pass
+    
+    # Clean-up DOM: remove any lingering modal element modal_card
+    try:
+        if modal_card:
+            driver.execute_script("arguments[0].remove();", modal_card)
+            logger.debug("Removed lingering modal element")
+    except Exception as e:
+        logger.debug(f"Failed to remove lingering modal element: {e}")
+        pass
 
+    return info
 
-def main():
-    results = scrape_sizzling()
-    # Save results to CSV and JSON
-    if results:
-        df = pd.DataFrame(results)
-        df.to_csv(file_sizzling_csv, index=False)
-        print(f"Scraped {len(results)} items. Data saved to {file_sizzling_csv}.")
-        with open(file_sizzling_json, 'w') as f:
+def _extract_food_name_from_card(card, driver) -> str:
+    """Try multiple selectors and fallbacks to extract a food name from a card."""
+    candidate_xpaths = [
+        ".//h1 | .//h2 | .//h3 | .//h4 | .//h5 | .//h6",
+        # ".//*[contains(translate(@class,'TITLE','title'),'title')]",
+        # ".//*[contains(translate(@class,'NAME','name'),'name')]",
+    ]
+    for xp in candidate_xpaths:
+        try:
+            for el in card.find_elements(By.XPATH, xp):
+                txt = clean_text(get_visible_text(el, driver))
+                if txt:
+                    try:
+                        logger.debug(f"Found food name: {txt}")
+                    except Exception:
+                        pass
+                    return txt
+        except Exception:
+            continue
+
+def crawl_nutrition():
+    menu_driver = setup_driver()
+    _set_driver_timeouts(menu_driver)
+    try_click_accept_cookies(menu_driver)
+    results = []
+
+    try:
+        menu_driver.get(START_URL)
+        logger.info('Page URL: %s', menu_driver.current_url)
+        logger.info('Waiting for menu items to load…')
+        (by, menu_urls_xpath_expr) = (By.XPATH, "//*[@class='image parbase section']")
+        WebDriverWait(menu_driver, 5).until(
+            EC.presence_of_all_elements_located((by, menu_urls_xpath_expr))
+        )
+        logger.info('Menu items loaded.')
+
+        menu_els = menu_driver.find_elements(by, menu_urls_xpath_expr + "//a")
+        food_menus_urls = [el.get_attribute("href") for el in menu_els]
+        logger.info('Found %d menu items', len(food_menus_urls))
+
+        for idx, menu_url in enumerate(food_menus_urls):
+            # Skip all except the 5th menu for testing
+            # if idx not in [3,4]:
+            #     continue
+            try:
+                # Navigate to menu and find food cards (inlined from former find_food_cards)
+                logger.info("Navigating to menu URL: %s", menu_url)
+                menu_driver = safe_get(menu_driver, menu_url, wait_timeout=8)
+                by, sel = (By.XPATH, "//div[contains(@class,'MenuItem__wrapper')]")
+                try:
+                    logger.debug("Waiting for food cards with selector: %s", sel)
+                    food_cards = WebDriverWait(menu_driver, 8).until(
+                        EC.presence_of_all_elements_located((by, sel))
+                    )
+                    logger.info("Found %d food cards", len(food_cards))
+                except TimeoutException:
+                    logger.warning("Selector timed out")
+                    food_cards = []
+                logger.info("Found %d foods in menu %d, url: %s", len(food_cards), idx+1, menu_url)
+                for f_idx, card in enumerate(food_cards):
+                    # if (f_idx != 13):  # For debugging specific item
+                    #     continue
+                    try:
+                        logger.debug("Processing food card %d/%d", f_idx+1, len(food_cards))
+                        # 1) Try to read directly from the food card
+                        food_name = _extract_food_name_from_card(card, menu_driver)
+
+                        # 2) Build record by extracting allergens/nutrition
+                        logger.debug("Extracting allergens and nutrition…")
+                        nut_info = _extract_nut_info_from_card(card, menu_driver)
+                        record = {
+                            'collection_date': date.today().strftime('%b-%d-%Y'),
+                            'rest_name': REST_NAME,
+                            'menu_section': menu_url.rstrip('/').split('/')[-1] if '/' in menu_url else 'Unknown',
+                            'item_name': food_name or '',
+                            'allergens': nut_info.get('allergens'),
+                            'kj': nut_info.get('kj'),
+                            'kcal': nut_info.get('kcal'),
+                            'fat': nut_info.get('fat'),
+                            'satfat': nut_info.get('satfat'),
+                            'carb': nut_info.get('carb'),
+                            'sugar': nut_info.get('sugar'),
+                            'protein': nut_info.get('protein'),
+                            'salt': nut_info.get('salt'),
+                        }
+                        results.append(record)
+                        logger.debug("[%d/%d] Food: %s -> captured fields: %s",
+                                     f_idx+1, len(food_cards), food_name or '<empty>',
+                                     {k:v for k,v in record.items() if k in ['allergens','kj','kcal','fat','satfat','carb','sugar','protein','salt'] and v})
+                    except Exception as e:
+                        logger.warning("Error processing food item: %s", e)
+                        continue
+            except Exception as e:
+                logger.warning("Error processing item %d: %s, proceeding to next menu", idx+1, e)
+                continue
+
+        # Save outputs
+        with open(file_json, 'w') as f:
             json.dump(results, f, indent=2)
-        print(f"Scraped {len(results)} items. Data saved to {file_sizzling_json}.")
-    else:
-        print('No items found to save.')
+        logger.info("Scraped %d items. Data saved to %s", len(results), file_json)
+        if results:
+            pd.DataFrame(results).to_csv(file_csv, index=False)
+            logger.info("Data also saved to CSV: %s", file_csv)
+    except TimeoutException:
+        logger.warning('Timed out waiting for menu items.')
+    except Exception as e:
+        logger.error('Error during scraping: %s', e)
+    finally:
+        menu_driver.quit()
 
 
 if __name__ == '__main__':
-    main()
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+                        datefmt='%H:%M:%S')
+    crawl_nutrition()
+
