@@ -59,16 +59,24 @@ def safe_get(driver, url: str, wait_locator=None, wait_timeout: int = 6) -> 'Web
                 logger.debug("Wait for locator timed out; proceeding anyway…")
                 pass
 
+    # Try to quit existing selenium driver and create a new one
     try:
-        _navigate(driver)
-        return driver
+        driver.quit()
+    except Exception as e:
+        logger.warning("Cannot destroy existing web driver, proceeding anyway...")
+    try:
+        new_driver = setup_driver()
+        _set_driver_timeouts(new_driver)
+        try_click_accept_cookies(new_driver)
+        _navigate(new_driver)
+        return new_driver
     except WebDriverException as e:
         msg = str(e)
         if ("Read timed out" in msg) or ("HTTPConnectionPool" in msg) or ("ERR_CONNECTION" in msg):
             # Restart the driver and retry once
             try:
                 logger.warning("Transport timeout detected, restarting driver and retrying navigation…")
-                driver.quit()
+                new_driver.quit()
             except Exception:
                 logger.warning("Could not quit driver cleanly, proceeding anyway…")
                 pass
@@ -173,32 +181,22 @@ def _extract_nut_info_from_card(card, driver) -> dict:
     except Exception:
         pass
 
-    # Capture expected title from the card (to validate modal content)
-    expected_title = None
-    try:
-        expected_title = _extract_food_name_from_card(card, driver)
-    except Exception:
-        expected_title = None
-
     # Click on the card to open details (often a modal)
     try:
         # print heading of the current card 
-        logger.debug(f"Current card heading: {expected_title}")
         logger.debug("Clicking on card to open details (JS)")
         driver.execute_script("arguments[0].click();", card)
-        sleep(0.4)
+        sleep(0.2)
     except Exception:
         pass
 
-    # Locate the correct, visible modal for this card by matching its heading
     modal_card = None
-    logger.debug("Waiting for visible modal to match current card heading…")
+    logger.debug("Look for visible modals…")
     candidates = driver.find_elements(By.XPATH, "//div[contains(@class,'Modal__modal Modal-menu-item')]")
     logger.debug(f"Found {len(candidates)} candidate modals")
-    for cand in candidates:
-        modal_card = cand
-        heading = modal_card.find_element(By.XPATH, ".//h1 | .//h2 | .//h3 | .//h4")
-        htxt = (heading.text or heading.get_attribute('innerText') or '').strip()
+    modal_card = candidates[0]
+    heading = modal_card.find_element(By.XPATH, ".//h1 | .//h2 | .//h3 | .//h4")
+    htxt = (heading.text or heading.get_attribute('innerText') or '').strip()
     logger.debug(f"Modal heading: {htxt}")
 
     # Expand Allergens section within the card
@@ -223,49 +221,30 @@ def _extract_nut_info_from_card(card, driver) -> dict:
                     allergen_toggle.click()
                 except Exception:
                     pass
-            sleep(0.4)
-            # After expand, try to capture allergen text from typical containers within the card
-            # Accumulate allergen labels across all candidate containers, de-duplicated
+            # sleep(0.2)
+            # After expand, capture allergen pills and de-duplicate while preserving order
             collected_allergens = []
             seen_allergens = set()
-            candidates = [
-                ".//div[contains(@class,'AllergenInfo__allergens__pills__wrapper')]",
-                # ".//*[contains(@class,'AllergenInfo__content')]",
-                # ".//*[contains(@class,'AllergenInfo__list')]",
-                # ".//*[contains(translate(@class, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'allergen') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'allergen')]",
-            ]
-            for xp in candidates:
-                try:
-                    logger.debug(f"Searching allergen content with XPath: {xp}")
-                    els = allergen_toggle.find_elements(By.XPATH, xp)
-                    logger.debug(f"Found {len(els)} allergen content elements")
-                    for el in els:
-                        # Prefer collecting pill-like descendants to build a concise list
-                        try:
-                            pill_nodes = el.find_elements(
-                                By.XPATH,
-                                ".//*[contains(translate(@class,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pill') or self::li or self::span]"
-                            )
-                            logger.debug(f"Found {len(pill_nodes)} allergen pill nodes")
-                        except Exception:
-                            pill_nodes = []
-                        texts = []
-                        for pn in pill_nodes:
-                            t = clean_text(get_visible_text(pn, driver))
-                            if t and t not in ('Contains', 'Allergens', 'May contain'):
-                                texts.append(t)
-                        # Deduplicate while preserving order
-                        if texts:
-                            dedup = list(dict.fromkeys(texts))
-                            for token in dedup:
-                                if token not in seen_allergens:
-                                    seen_allergens.add(token)
-                                    collected_allergens.append(token)
-                    
-                    # if info['allergens']:
-                    #     break
-                except Exception:
-                    continue
+            try:
+                xp = ".//div[contains(@class,'AllergenInfo__allergens__pills__wrapper')]"
+                logger.debug(f"Searching allergen content with XPath: {xp}")
+                els = allergen_toggle.find_elements(By.XPATH, xp)
+                WebDriverWait(driver, 5).until(EC.presence_of_all_elements_located(els))
+                logger.debug(f"Found {len(els)} allergen content elements")
+                
+                for el in els:
+                    pill_nodes = el.find_elements(
+                        By.XPATH,
+                        ".//*[contains(translate(@class,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'pill') or self::li or self::span]"
+                    )
+                    logger.debug(f"Found {len(pill_nodes)} allergen pill nodes")
+                    for pn in pill_nodes:
+                        t = clean_text(get_visible_text(pn, driver))
+                        if t and t not in ('Contains', 'Allergens', 'May contain') and t not in seen_allergens:
+                            seen_allergens.add(t)
+                            collected_allergens.append(t)
+            except Exception:
+                pass
             if collected_allergens:
                 txt_joined = ", ".join(collected_allergens)
                 if len(txt_joined) > 3:
