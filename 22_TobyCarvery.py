@@ -12,13 +12,13 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from define_collection_wave import folder
 from helpers import create_folder, setup_driver, clean_text, try_click_accept_cookies, get_visible_text, set_driver_timeouts, safe_get
 
-path_out = create_folder('19_Sizzling', folder)
-file_json = path_out + '/sizzling_nutrition.json'
-file_csv = path_out + '/sizzling_nutrition.csv'
-REST_NAME = "Sizzling Pubs"
+path_out = create_folder('22_TobyCarvery', folder)
+file_json = path_out + '/tobycarvery_nutrition.json'
+file_csv = path_out + '/tobycarvery_nutrition.csv'
+REST_NAME = "Toby Carvery"
 
-START_URL = 'https://www.sizzlingpubs.co.uk/food#'
-menu_urls_xpath_expr = "//*[@class='image parbase section']"
+START_URL = 'https://www.tobycarvery.co.uk/carvery#/'
+menu_urls_xpath_expr = "//*[@class='button parbase section']"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

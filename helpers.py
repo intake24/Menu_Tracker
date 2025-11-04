@@ -611,3 +611,68 @@ def get_visible_text(el, driver) -> str:
     except Exception:
         pass
     return ""
+
+def set_driver_timeouts(driver):
+    """Configure driver timeouts to reduce flaky transport timeouts while avoiding long stalls."""
+    try:
+        driver.set_page_load_timeout(20)
+        driver.set_script_timeout(5)
+    except Exception as e:
+        print(f"Could not set timeouts: {e}")
+        pass
+
+def safe_get(driver, url: str, wait_locator=None, wait_timeout: int = 6) -> 'WebDriver':
+    """
+    Navigate robustly to url.
+    - On page-load TimeoutException, issue window.stop() and proceed.
+    - On transport read timeout or driver hang, restart the driver, re-apply timeouts, accept cookies, and retry once.
+    Returns the (possibly restarted) driver.
+    """
+
+    def _navigate(drv):
+        try:
+            drv.get(url)
+        except TimeoutException:
+            # Stop loading and proceed to wait on required DOM instead of failing
+            try:
+                drv.execute_script("window.stop();")
+            except Exception:
+                pass
+        # Optionally wait for a page element that signals readiness
+        if wait_locator:
+            try:
+                WebDriverWait(drv, wait_timeout).until(EC.presence_of_element_located(wait_locator))
+            except Exception:
+                # Best-effort wait; do not fail navigation outright
+                print("Wait for locator timed out; proceeding anyway…")
+                pass
+
+    # Try to quit existing selenium driver and create a new one
+    try:
+        driver.quit()
+    except Exception as e:
+        print("Cannot destroy existing web driver, proceeding anyway...")
+    try:
+        new_driver = setup_driver()
+        set_driver_timeouts(new_driver)
+        try_click_accept_cookies(new_driver)
+        _navigate(new_driver)
+        return new_driver
+    except WebDriverException as e:
+        msg = str(e)
+        if ("Read timed out" in msg) or ("HTTPConnectionPool" in msg) or ("ERR_CONNECTION" in msg):
+            # Restart the driver and retry once
+            try:
+                print("Transport timeout detected, restarting driver and retrying navigation…")
+                new_driver.quit()
+            except Exception:
+                print("Could not quit driver cleanly, proceeding anyway…")
+                pass
+            new_driver = setup_driver()
+            set_driver_timeouts(new_driver)
+            try_click_accept_cookies(new_driver)
+            _navigate(new_driver)
+            logger.info("Re-created driver and retry successful")
+            return new_driver
+        # Unexpected error; bubble up
+        raise
