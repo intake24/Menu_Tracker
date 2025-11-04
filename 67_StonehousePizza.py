@@ -12,13 +12,13 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from define_collection_wave import folder
 from helpers import create_folder, setup_driver, clean_text, try_click_accept_cookies, get_visible_text, set_driver_timeouts, safe_get
 
-path_out = create_folder('89_Browns', folder)
-file_json = path_out + '/browns_nutrition.json'
-file_csv = path_out + '/browns_nutrition.csv'
-REST_NAME = "Browns"
+path_out = create_folder('67_StonehousePizza', folder)
+file_json = path_out + '/stonehousepizza_nutrition.json'
+file_csv = path_out + '/stonehousepizza_nutrition.csv'
+REST_NAME = "Stonehouse Pizza"
 
-START_URL = 'https://www.browns-restaurants.co.uk/restaurants/eastofengland/cambridge/menus/food#/'
-menu_urls_xpath_expr = "//*[@class='MenuListing__grid']"
+START_URL = 'https://www.stonehouserestaurants.co.uk/food#/'
+menu_urls_xpath_expr = "//*[@class='button parbase section']"
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
