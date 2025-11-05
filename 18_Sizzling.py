@@ -12,7 +12,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 from define_collection_wave import folder
 from helpers import create_folder, setup_driver, clean_text, try_click_accept_cookies, get_visible_text, set_driver_timeouts, safe_get
 
-path_out = create_folder('19_Sizzling', folder)
+path_out = create_folder('18_Sizzling', folder)
 file_json = path_out + '/sizzling_nutrition.json'
 file_csv = path_out + '/sizzling_nutrition.csv'
 REST_NAME = "Sizzling Pubs"
