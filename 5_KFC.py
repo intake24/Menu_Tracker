@@ -8,19 +8,25 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from define_collection_wave import folder
-from helpers import create_folder, setup_driver
+from helpers import create_folder, setup_driver, set_driver_timeouts, try_click_accept_cookies
 
-path_kfc = create_folder('5_KFC', folder)
-file_kfc_json = path_kfc + '/kfc_nutrition.json'
-file_kfc_csv = path_kfc + '/kfc_nutrition.csv'
+path_out = create_folder('5_KFC', folder)
+file_json = path_out + '/kfc_nutrition.json'
+file_csv = path_out + '/kfc_nutrition.csv'
+REST_NAME = "KFC"
 
-def crawl_kfc_nutrition():
+START_URL = "https://www.kfc.co.uk/nutrition-allergens?close"
+script_data_xpath_expr = "//script[@id='__NEXT_DATA__']"
+
+
+def crawl_nutrition():
     # Setup driver using helper function
     driver = setup_driver()
+    set_driver_timeouts(driver)
+    try_click_accept_cookies(driver)
 
     try:
-        url = "https://www.kfc.co.uk/nutrition-allergens?close"
-        driver.get(url)
+        driver.get(START_URL)
         
         # Print page source to see what's actually loaded
         print("Page URL:", driver.current_url)
@@ -30,9 +36,9 @@ def crawl_kfc_nutrition():
         
         # Wait for the script tag to load
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, '//script[@id="__NEXT_DATA__"]'))
+            EC.presence_of_element_located((By.XPATH, script_data_xpath_expr))
         )
-        text_content = driver.find_element(By.XPATH, '//script[@id="__NEXT_DATA__"]').get_attribute('textContent')
+        text_content = driver.find_element(By.XPATH, script_data_xpath_expr).get_attribute('textContent')
         print("Text content found, length:", len(text_content))
         print("First 200 characters of text content:")
         print(text_content[:200])
@@ -46,7 +52,7 @@ def crawl_kfc_nutrition():
             vegan = item.get('vegan')
             vegetarian = item.get('vegetarian')
             item_dict = {
-                'rest_name': 'KFC',
+                'rest_name': REST_NAME,
                 'collection_date': date.today().strftime("%b-%d-%Y"),
                 'item_name': item.get('name'),
                 'menu_section': item.get('categories')[0],
@@ -58,18 +64,19 @@ def crawl_kfc_nutrition():
             results.append(item_dict)
         
         # Save results to JSON file
-        with open(file_kfc_json, 'w') as f:
+        with open(file_json, 'w') as f:
             json.dump(results, f, indent=2)
         
         # Save results to CSV file
         df = pd.DataFrame(results)
-        df.to_csv(file_kfc_csv, index=False)
+        df.to_csv(file_csv, index=False)
         
         print(f"Scraped {len(results)} items.")
-        print(f"JSON data saved to {file_kfc_json}")
-        print(f"CSV data saved to {file_kfc_csv}")
+        print(f"JSON data saved to {file_json}")
+        print(f"CSV data saved to {file_csv}")
     finally:
         driver.quit()
 
 if __name__ == "__main__":
-    crawl_kfc_nutrition()
+    crawl_nutrition()
+

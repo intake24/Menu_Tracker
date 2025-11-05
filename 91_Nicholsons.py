@@ -21,8 +21,6 @@ START_URL = 'https://www.nicholsonspubs.co.uk/food#/'
 menu_urls_xpath_expr = "//*[@class='image parbase section']"
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logger.formatter = logging.Formatter('%(message)s')
 
 def _parse_nutrition_table_from(container, driver) -> dict:
     """Parse a two-column nutrition table within the given container. Returns label->value mapping."""
@@ -357,6 +355,8 @@ def crawl_nutrition():
                     food_cards = []
                 logger.info("Found %d foods in menu %d, url: %s", len(food_cards), idx+1, menu_url)
                 for f_idx, card in enumerate(food_cards):
+                    if f_idx % 10 == 0:
+                          logger.info(f"Processing {f_idx+1}/{len(food_cards)}")
                     # if (f_idx != 13):  # For debugging specific item
                     #     continue
                     try:
