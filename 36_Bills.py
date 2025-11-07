@@ -90,24 +90,26 @@ def parse_menu_page(html: str) -> List[Dict]:
         if not items:
             items = category.select("div.k10-l-grid-item")
 
-        # Choose table: prefer one inside the category; else fallback to global nth
-        table = category.select_one("table")
-        if not table and idx < len(global_tables):
-            table = global_tables[idx]
-
-        kv_pairs: Dict[str, str] = {}
-        if table:
-            for row in table.select("tr.k10-table__tr, tr"):
-                tds = row.find_all("td")
-                if len(tds) >= 2:
-                    key = tds[0].get_text(strip=True)
-                    val = tds[1].get_text(strip=True)
-                    if key:
-                        kv_pairs[key] = val
+       
 
         for it in items:
             name = text_or_none(it.select_one("span.k10-recipe__name")) or text_or_none(it.select_one("span.k10-w-recipe__name"))
             desc = text_or_none(it.select_one("span.k10-recipe__desc")) or text_or_none(it.select_one("span.k10-w-recipe__desc"))
+
+            # Choose table: prefer one inside the category; else fallback to global nth
+            table = it.select_one("table")
+            if not table and idx < len(global_tables):
+                table = global_tables[idx]
+
+            kv_pairs: Dict[str, str] = {}
+            if table:
+                for row in table.select("tr.k10-table__tr, tr"):
+                    tds = row.find_all("td")
+                    if len(tds) >= 2:
+                        key = tds[0].get_text(strip=True)
+                        val = tds[1].get_text(strip=True)
+                        if key:
+                            kv_pairs[key] = val
 
             item_dict: Dict = {
                 "collection_date": date.today().strftime("%b-%d-%Y"),
@@ -116,6 +118,7 @@ def parse_menu_page(html: str) -> List[Dict]:
                 "item_name": name,
                 "item_description": desc,
             }
+            print(f"Parsed item: {name} in category: {cat_name}")
             item_dict.update(kv_pairs)
             records.append(item_dict)
 
