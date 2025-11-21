@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import logging
 from ssl import OP_SINGLE_DH_USE
 # from tkinter import E
 import urllib
@@ -27,6 +28,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 import define_collection_wave as dcw
 import platform
+
+logger = logging.getLogger(__name__)
 
 def setup_driver(download_dir: str | None = None):
     """Setup Chrome driver with anti-detection options.
@@ -178,14 +181,18 @@ root_path = os.getcwd()
 print(f"Root path set to: {root_path}")
 # web_browser_path = 'C:\\Users\\angus\\source\\repos\\MenuTracker\\chromedriver.exe'
 
+ # Initialize fake user agent
+ua = UserAgent()
+random_user_agent = ua.random
+headers = {'User-Agent': random_user_agent}
+
+
 # windows or osx
 if platform.system() == 'Windows':
     # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36'}
-    headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36'}
     operation_system = 'Windows'
 else:
     # headers = {'User-Agent': 'Mozilla/5.0 (Linuxintosh; Intel Linux OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15'}
-    headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36'}
     operation_system = 'Linux'
 
 
@@ -229,6 +236,11 @@ def PDFDownloader(url, filePath, verif=True):
     :param verif: True or False. Default is set to True. If the PDF download is unsuccessful because of the verification error, set the verif to False
     :return: saves the PDF file
     '''
+    ua = UserAgent()
+    random_user_agent = ua.random
+    headers = {'User-Agent': random_user_agent}
+    logger.info(f'headers: {headers}')
+    
     r = requests.get(url, stream=True, verify=verif, headers=headers)
     if r.status_code != 200:
         print(f'PDFDownloader: Error {r.status_code} for {url}')
@@ -242,7 +254,7 @@ def PDFDownloader(url, filePath, verif=True):
                 pdf.write(chunk)
 
 # Downloading multiple PDFs
-def combo_PDFDownload(rest_name, url, keyword='pdf', prex=None, verify=True):
+def combo_PDFDownload(rest_name, url, keyword='pdf', prex=None, verify=True, timeout: int = 30):
     '''
     This function identifies all PDFs available for download and save all of them
     :param rest_name: the name of the restaurant
@@ -252,36 +264,58 @@ def combo_PDFDownload(rest_name, url, keyword='pdf', prex=None, verify=True):
     :param verify: True or False. whether to allow authentication
     :return: multiple downloaded PDFs
     '''
+    logger.info("Starting combo_PDFDownload")
+    ua = UserAgent()
+    random_user_agent = ua.random
+    headers = {'User-Agent': random_user_agent}
+    logger.info(f'headers: {headers}')
+    
     # Use live collection folder from define_collection_wave when available
     base_folder = getattr(dcw, 'folder', None)
     path = create_folder(rest_name, base_folder)
-    html = requests.get(url, headers=headers, verify=verify)
-    print(f'html: {html}')
-    soup = BeautifulSoup(html.text, 'html.parser')
-    urls = soup.select(f"a[href*={keyword}]")
-    if not urls:
-        print(f'No PDF links found for {rest_name} at {url}')
+    try:
+        html = requests.get(url, headers=headers, verify=verify, timeout=timeout)
+    except requests.RequestException as e:
+        logger.error(f"Request error for {url}: {e}")
         return
-    for url in urls:
-        print(url)
-        url_link = url.get('href')
-        if 'https://' not in url_link and 'http://' not in url_link:
-            if url_link[0] != '/':
+    logger.info(f'HTTP status {html.status_code} for {url}')
+    if html.status_code != 200:
+        logger.warning(f'Non-200 status {html.status_code} for {url}; aborting')
+        return
+    soup = BeautifulSoup(html.text, 'html.parser')
+    # Support both anchor hrefs and button data-url attributes containing the keyword.
+    elements = soup.select(f"a[href*='{keyword}'], button[data-url*='{keyword}']")
+    if not elements:
+        logger.info(f'No PDF candidate elements found for {rest_name} at {url}')
+        return
+
+    seen = set()
+    for el in elements:
+        href = el.get('href') or el.get('data-url')
+        if not href:
+            continue
+        url_link = href.strip()
+        # Normalise relative URLs (prefix only applied when provided)
+        if 'https://' not in url_link and 'http://' not in url_link and prex:
+            if not url_link.startswith('/'):
                 url_link = '/' + url_link
             url_link = prex + url_link
+        # Deduplicate
+        if url_link in seen:
+            continue
+        seen.add(url_link)
+
         filename = url_link.split('/')[-1]
-        if filename[-3:] != 'pdf':
-            if '.pdf' in filename: 
+        if not filename.lower().endswith('pdf'):
+            if '.pdf' in filename.lower():
                 filename = filename.split('?')[0]
-            else: 
+            else:
                 filename = filename + '.pdf'
-        filename = filename.replace(':', '')
-        filename = filename.replace('?','')
-        filePath = os.path.join(path,  filename) # path to save the PDF file
-        print(url_link)
-        print(filePath)
+        filename = filename.replace(':', '').replace('?', '')
+        filePath = os.path.join(path, filename)
+        logger.info(f'Downloading: {url_link} -> {filePath}')
         PDFDownloader(url=url_link, filePath=filePath)
-    print('finished downloading pdfs for ' + rest_name)
+    logger.info('Finished downloading PDFs for ' + rest_name)
 
 def combo_PDFDownload_class_name(rest_name, url, keyword='pdf', prex=None, verify=True):
     '''
