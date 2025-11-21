@@ -111,11 +111,13 @@ for f_idx, json_data in enumerate(json_datas):
                 data.update(nutritionPerPortion)
                 data.update(allergens)
 
-                df = pd.DataFrame([data])
-                if os.path.exists(file_csv):
-                    df.to_csv(file_csv, header=False, index=False, mode='a')
-                else:
-                    df.to_csv(file_csv, header=True, index=False, mode='a')
+df = pd.DataFrame([data])
+if os.path.exists(file_csv):
+    df.to_csv(file_csv, header=False, index=False, mode='a')
+    logger.info("Data saved to CSV: %s", file_csv)
+else:
+    df.to_csv(file_csv, header=True, index=False, mode='a')
+    logger.info("Data saved to CSV: %s", file_csv)
 
 
 
