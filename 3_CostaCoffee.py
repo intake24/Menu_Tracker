@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from time import sleep
 import requests
@@ -7,7 +8,12 @@ import pandas as pd
 
 from define_collection_wave import folder
 from helpers import create_folder
-path_costacoffee = create_folder('3_CostaCoffee', folder)
+path_out = create_folder('3_CostaCoffee', folder)
+file_json = path_out + '/costacoffee_nutrition.json'
+file_csv = path_out + '/costacoffee_nutrition.csv'
+REST_NAME = "CostaCoffee"
+
+logger = logging.getLogger(__name__)
 
 headers = {
     'accept': 'application/json, text/plain, */*',
@@ -37,18 +43,24 @@ json_datas = [
     'vars': {},
 }
 ]
+logging.info(f"Total JSON payloads to process: {len(json_datas)}")
 
-for json_data in json_datas:
+for f_idx, json_data in enumerate(json_datas):
+    if f_idx % 10 == 0:
+        logger.info(f"Processing {f_idx+1}/{len(json_datas)}")
     response = requests.post('https://www.costa.co.uk/api/mdm/',  headers=headers, json=json_data)
     js = json.loads(response.text)
 
     all_items = js['data']['masterProducts']['items']
+    logging.info(f"Total items found in payload {f_idx+1}: {len(all_items)}")
 
-    for all_item in all_items:
+    for i_idx, all_item in enumerate(all_items):
         product_name = all_item.get('productDisplayName','')
         if product_name:
             product_name = product_name.strip()
-        print(product_name)
+        # print(product_name)
+        if i_idx % 10 == 0:
+            logger.info(f"  Processing item {i_idx+1}/{len(all_items)}, Product Name: {product_name}")
         if not product_name:
             continue
         product_description = all_item.get('productDescription', '')
@@ -100,10 +112,10 @@ for json_data in json_datas:
                 data.update(allergens)
 
                 df = pd.DataFrame([data])
-                if os.path.exists(path_costacoffee+ '/3_CostaCoffee.csv'):
-                    df.to_csv(path_costacoffee+ '/3_CostaCoffee.csv', header=False, index=False, mode='a')
+                if os.path.exists(file_csv):
+                    df.to_csv(file_csv, header=False, index=False, mode='a')
                 else:
-                    df.to_csv(path_costacoffee+ '/3_CostaCoffee.csv', header=True, index=False, mode='a')
+                    df.to_csv(file_csv, header=True, index=False, mode='a')
 
 
 
