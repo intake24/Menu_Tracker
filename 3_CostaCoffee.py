@@ -1,155 +1,724 @@
+"""
+Costa Coffee Menu Scraper
+Scrapes menu items and nutritional information from https://www.costa.co.uk/menu
+
+This script uses a hybrid approach:
+1. First tries to use the GraphQL API directly (faster, no browser needed)
+2. Falls back to Selenium browser automation if API access is blocked
+
+The original script had a critical bug where the DataFrame was created outside
+the data collection loop, causing only 1 item to be saved.
+"""
+
 import json
 import logging
-import re
-from time import sleep
-import requests
 import os
+import re
+from datetime import date
+from time import sleep
+from typing import List, Dict, Any, Optional
+
+import requests
 import pandas as pd
 
-from define_collection_wave import folder
+from define_collection_wave import folder, create_collection
 from helpers import create_folder
-path_out = create_folder('3_CostaCoffee', folder)
-file_json = path_out + '/costacoffee_nutrition.json'
-file_csv = path_out + '/costacoffee_nutrition.csv'
-REST_NAME = "CostaCoffee"
 
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-headers = {
+# Auto-initialize collection folder if not already set
+# This allows the script to run standalone without running the notebook first
+if folder is None:
+    create_collection("Feb_collection_2026")
+    from define_collection_wave import folder  # Re-import after initialization
+
+# Output paths
+REST_NAME = "CostaCoffee"
+path_out = create_folder('3_CostaCoffee', folder)
+file_json = os.path.join(path_out, 'costacoffee_nutrition.json')
+file_csv = os.path.join(path_out, 'costacoffee_nutrition.csv')
+
+MENU_URL = "https://www.costa.co.uk/menu"
+API_URL = "https://www.costa.co.uk/api/mdm/"
+
+# Request headers
+HEADERS = {
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'en-US,en;q=0.9',
     'content-type': 'application/json',
-    # 'cookie': '_ga=GA1.1.1356748925.1732331838; ak_bmsc=095BADF0A5EBE37BA229D6CC70280A93~000000000000000000000000000000~YAAQiHAsMaXEsjGTAQAAdCYGVxkV4jkjhcKytLA+o9s3JJlCe8G9MbZKpKTKsHDuBz7OcZ2O+TU+z1RDS8cBSk/ezNSEq2Ig8y8eZLDqvSX1PXn26MinP1+cKLYVOwKRIle5JwdeOZWexslrTP4O0eSlwnJDneD28XiDtiKY8rHbT3uSa7kuAxyD6hIAWPHN7g/8iR5lneki2wF2Uj0KkNtH0JRKZ3d6myjtkFyXPpi8ICetSv7SKKJb97J5m7bonzttuZSsTzwP3CXmDk9ZVHlFpp+nURpk35HldNgxjtN61BrXObZNYz5vSX9aWqzjZvl25xsFWiyuy9Aq/YouYJkpiQsZWS1c3BPZ5lRbuMfnefs4f746AJc9NBZSVVMfVTtpFae5mMCcAikHQz8O3rEpNS9xjT+ZgUo1CCckVxsf1RavH3ZUvRKi/bXQaFH2m8dfvsxZfFR1aKBEPofV; OptanonAlertBoxClosed=2024-11-23T03:17:23.971Z; at_check=true; AMCVS_30304ADC5B7680930A495EDE%40AdobeOrg=1; _hjSessionUser_2519238=eyJpZCI6IjNkMDk0NDIxLTNiMDctNWZhZi1iYThjLWE3NmI1NzEyNjliMyIsImNyZWF0ZWQiOjE3MzIzMzE4NDQ3MTIsImV4aXN0aW5nIjp0cnVlfQ==; s_cc=true; AMCV_30304ADC5B7680930A495EDE%40AdobeOrg=-1124106680%7CMCIDTS%7C20051%7CMCMID%7C14647688899982618531862131468614419081%7CMCAAMLH-1732936644%7C12%7CMCAAMB-1732936644%7CRKhpRz8krg2tLO6pguXWp5olkAcUniQYPHaMWWgdJ3xzPWQmdj0y%7CMCOPTOUT-1732339044s%7CNONE%7CMCAID%7CNONE%7CMCSYNCSOP%7C411-20058%7CvVersion%7C5.2.0; _abck=296BD6DE0A847932D50EEF0697B33FEE~0~YAAQiHAsMe/UsjGTAQAASlYHVwzCyqvdLDl78vMwcZ98Lapwj7WbHYQsjDlwLTNfz13DUIiea4VCaBtpuhSMjts9dEfLD8WXUzz7lcED56KqyQbeZubE/efwSFzWVj2ggnjVShxCo40qv3zfBO0ohxvFLbo6in5Q+T7K2vrufT2wrAaiE2kUIGC6ajr8WpBoqNKyOqw/vpGinWXgk1vhVf85kpziI0zM+0ocxW16iEurkOulTRpwrFROgbhTlVE1ECyuLLXCUQTrjDm8gadpNs5mYXMn8mKklZcfxeFAIVV4pvpj6I/DM9CSq1L0zaMSKNjUYpP+d2xUpt1E+MpBui/MN5Vu9NNdbxXKnxbeCxEtjHQ1Uo/zLFv7tSnk5l9J78IvqufqkENyvEb6E4wPHCeRbUYrqj/rAhWI6LS4mGTcdrmJR7405xd1J52VrL0nQlQNWQWekZrHUx13IY6+UT2+mU87I/N1kkUEJGI3EcJm~-1~-1~-1; _hjSession_2519238=eyJpZCI6IjZiMDlmNmU2LTI1MmEtNGYzMy05MjNkLTYzNzMyODY0ODM1MCIsImMiOjE3MzIzMzc4NzQ4NjMsInMiOjEsInIiOjEsInNiIjowLCJzciI6MCwic2UiOjAsImZzIjowLCJzcCI6MH0=; bm_sz=0F7DE667EA7A2261D814A2B02AEF9FA3~YAAQp4osMUvH6jSTAQAA/LxiVxmw9KWmqnop/dMBJK8m/tMjolupdtV9iXLrDN+NzT/z+ohn0wTLqyvGFDqUbePGMa6JqHDwRVl8OBg/3eaJ0dlsbVVdJFowTLuYl8alO8Hhn3wBdQLd9dG6VID5bNUaMZa9lPpfuzriP4+CWSmHZba6UcAglOpFV+beV+7X0OCcdfHUxQ+1JfL6m/D5I5ZEc+/z/Z74+FMczptqUjGyGMaMfkKH2Q+Tdy4wJo2QDrNcoCqrCnZ0FDxiwq4qK/L9bEAlc/Do6K4kBrSeNM5DDZSJY7umetbTwot3FXqu5Awr4OWvW9P7NJe+DCltYkaeJRuTFOCBwHGHb3s825w7vLM3kJcxHX11KRp+04afitvhBzhaBrOFJS6BXPB237aUrO9wnobUi3JKD+03t0Kcbw==~3618870~3551557; OptanonConsent=isIABGlobal=false&datestamp=Sat+Nov+23+2024+10%3A28%3A30+GMT%2B0530+(India+Standard+Time)&version=6.34.0&hosts=&consentId=070bdb76-c21e-4823-90fc-072f15b9212c&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&geolocation=IN%3BGJ&AwaitingReconsent=false; _ga_Q2ESTRQHQ0=GS1.1.1732337908.2.1.1732337910.0.0.0; mbox=PC#9c6e497a98e14e588d85c09cb6582f30.41_0#1795582711|session#2f050511653f48d2815248050feb106e#1732339758; s_sq=%5B%5BB%5D%5D; bm_sv=FBF2080EA7FA9ABD41BE4612A49B0BDE~YAAQp4osMQ/J6jSTAQAATsViVxnWZ1oFcFDYsTwkJXYnEWWorJas/FhHsmCpkB7eRGWLD1OFyYo7xUOQLQDG1npj7p80K95NPtffX73XNdf+hU2Tu8jZJnJpxkpHspyp+CuYqS9MT5hmzoikWUsM8+WqSRWHsmcvI/4YvuhyBFGvLkHnpaTIUDvQeZH2Dt9qdAmkuapZTFGq1LD3+x86stOPJPt0HF41zt8PC8FqpHtVa9iWOzBgKzIpt2k+xr0o9JM=~1',
     'origin': 'https://www.costa.co.uk',
-    'priority': 'u=1, i',
     'referer': 'https://www.costa.co.uk/menu',
-    'sec-ch-ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'x-channel': 'web',
 }
 
-json_datas = [
-{
-    'query': '\n  query MasterProduct {\n    masterProducts(groupCodes: ["MP-0002247","MP-0002246","MP-0002274","Gingerbread & Cream Latte","Latte","Cappuccino","Americano","Flat White","Mocha","Espresso","Cortado","Mocha Cortado","Terry\'s Orange Hot Chocolate","Black Forest Hot Chocolate","MP-0002248","Hot Chocolate","White Hot Chocolate","Chai Latte","MP-0000662","MP-0002245","Tropical Mango Bubble Frappé","Strawberries & Cream Frappé","Salted Caramel Frappé","Salted Caramel Frappé with Coffee","Chocolate Fudge Brownie Frappé","Chocolate Fudge Brownie Frappé Mocha","Coffee Frappé","MP-0002260","MP-0002261","MP-0002279","MP-0000463","Iced Latte","Iced Americano Black","MP-0000701","Iced Flat White","Iced Mocha","MP-0000704","MP-0001671","English Breakfast Tea","Decaf Tea","Earl Grey Tea","Green Tea","Mint Tea","Superfruity Infusion","Citrus Zing with Vitamin C","Spiced Apple with Vitamin B6","Mellow Mango with Zinc","Mango & Passion Fruit","Red Summer Berries"], effectiveFromDate: null){\n      items {\n        id\n        brandName\n        productDisplayName\n        productDescription\n        productCode\n        groupCode\n        images {\n          imageStyle\n          imageUrl\n        }\n        variations {\n            variationCategoryName\n            variationName\n        }\n        nutritionProducts {\n          id\n          productCode\n          effectiveFromDate\n          ingredients\n          variations {\n            coffeeType\n            milkSuffix\n            milkType\n            serviceDelivery\n            size\n          }\n          dietaryChoices {\n            suitableForVegetarians\n            suitableForVegans\n          }\n          allergens {\n            celery\n            cereals {\n              wheat\n              rye\n              barley\n              oat\n            }\n            crustacean\n            egg\n            fish\n            lupin\n            milk\n            mollusc\n            mustard\n            peanut\n            sesame\n            soya\n            sulphite\n            treeNuts\n            treeNutSource\n          }\n          nutritionPer100g {\n            carbohydrates\n            energykCal\n            energykJ\n            fat\n            fibre\n            protein\n            salt\n            saturates\n            sugars\n            vitaminB6\n            vitaminB12\n            vitaminC\n            zinc\n          }\n          nutritionPerPortion {\n            portionWeight\n            carbohydrates\n            energykCal\n            energykJ\n            fat\n            fibre\n            protein\n            salt\n            saturates\n            sugars\n            vitaminB6\n            vitaminB12\n            vitaminC\n            zinc\n            portionWeight\n          }\n        }\n      }\n    }\n  }\n',
-    'vars': {},
-},
-{
-    'query': '\n  query MasterProduct {\n    masterProducts(groupCodes: ["MP-0002244","British Pork Sausage Bap","British Smoked Bacon Bap","Egg Mushroom & Spinach Bap (V)","MP-0001610","Greek Yogurt with Mixed Berry Compote & Granola","MP-0001669","Wholegrain Porridge New","Seeded Brown Toast","White Toast","Wholegrain Porridge","MP-0000590","MP-0002234","MP-0001114","MP-0001640","MP-0002226","MP-0002227","Turkey Feast Sandwich","MP-0001608","MP-0000996","Wiltshire Ham & Mature Cheddar Toastie","Cheese & Tomato Toastie","Tuna Melt Panini","Mozzarella & Tomato Panini","MP-0001271","MP-0001161","Ham & Cheese Toastie","MP-0001663","MP-0000447","MP-0002148","MP-0001087","MP-0001086","Free Range Egg Mayo Sandwich Without Cress","Mac & Cheese","MP-0001668","MP-0002276","All Butter Mince Pie","Terry’s Chocolate Orange Muffin","MP-0001681","MP-0002229","MP-0002278","Carrot & Walnut Cake","MP-0002275","MP-0002277","MP-0002196","MP-0002280","Croissant","Almond Croissant (V)","Lotus Biscoff Cheezecake (Vg)","MP-0002289","MP-0002290","Chocolate Twist","MP-0000518","Fruited Teacake (Vg)","Blueberry Muffin","Lemon Muffin","MP-0000543","Cinnamon Bun","Millionaire\'s Shortbread","Chocolate Tiffin","Raspberry & Almond Bake","Bakewell Tart","Lemon Curd Tart","MP-0000490","MP-0002198","MP-0002199","MP-0002200","MP-0002201","Triple Belgian Chocolate Biscuits","Stem Ginger Biscuits","Fruit & Oat Biscuits","Millionaire’s Shortbread Bar (GF)","Mince Tart (GF v)","Costa Milk Choc Chunks Gluten Free Brownie","Fruity Flapjack (GF v)","Jammy Shortbread Biscuits","Mini Shortbread Bites","Caramel Waffles"], effectiveFromDate: null){\n      items {\n        id\n        brandName\n        productDisplayName\n        productDescription\n        productCode\n        groupCode\n        images {\n          imageStyle\n          imageUrl\n        }\n        variations {\n            variationCategoryName\n            variationName\n        }\n        nutritionProducts {\n          id\n          productCode\n          effectiveFromDate\n          ingredients\n          variations {\n            coffeeType\n            milkSuffix\n            milkType\n            serviceDelivery\n            size\n          }\n          dietaryChoices {\n            suitableForVegetarians\n            suitableForVegans\n          }\n          allergens {\n            celery\n            cereals {\n              wheat\n              rye\n              barley\n              oat\n            }\n            crustacean\n            egg\n            fish\n            lupin\n            milk\n            mollusc\n            mustard\n            peanut\n            sesame\n            soya\n            sulphite\n            treeNuts\n            treeNutSource\n          }\n          nutritionPer100g {\n            carbohydrates\n            energykCal\n            energykJ\n            fat\n            fibre\n            protein\n            salt\n            saturates\n            sugars\n            vitaminB6\n            vitaminB12\n            vitaminC\n            zinc\n          }\n          nutritionPerPortion {\n            portionWeight\n            carbohydrates\n            energykCal\n            energykJ\n            fat\n            fibre\n            protein\n            salt\n            saturates\n            sugars\n            vitaminB6\n            vitaminB12\n            vitaminC\n            zinc\n            portionWeight\n          }\n        }\n      }\n    }\n  }\n',
-    'vars': {},
+# GraphQL query template for fetching product data
+GRAPHQL_QUERY = '''
+query MasterProduct {
+  masterProducts(groupCodes: %s, effectiveFromDate: null) {
+    items {
+      id
+      brandName
+      productDisplayName
+      productDescription
+      productCode
+      groupCode
+      images {
+        imageStyle
+        imageUrl
+      }
+      variations {
+        variationCategoryName
+        variationName
+      }
+      nutritionProducts {
+        id
+        productCode
+        effectiveFromDate
+        ingredients
+        variations {
+          coffeeType
+          milkSuffix
+          milkType
+          serviceDelivery
+          size
+        }
+        dietaryChoices {
+          suitableForVegetarians
+          suitableForVegans
+        }
+        allergens {
+          celery
+          cereals {
+            wheat
+            rye
+            barley
+            oat
+          }
+          crustacean
+          egg
+          fish
+          lupin
+          milk
+          mollusc
+          mustard
+          peanut
+          sesame
+          soya
+          sulphite
+          treeNuts
+          treeNutSource
+        }
+        nutritionPer100g {
+          carbohydrates
+          energykCal
+          energykJ
+          fat
+          fibre
+          protein
+          salt
+          saturates
+          sugars
+          vitaminB6
+          vitaminB12
+          vitaminC
+          zinc
+        }
+        nutritionPerPortion {
+          portionWeight
+          carbohydrates
+          energykCal
+          energykJ
+          fat
+          fibre
+          protein
+          salt
+          saturates
+          sugars
+          vitaminB6
+          vitaminB12
+          vitaminC
+          zinc
+        }
+      }
+    }
+  }
 }
-]
-logging.info(f"Total JSON payloads to process: {len(json_datas)}")
+'''
 
-for f_idx, json_data in enumerate(json_datas):
-    if f_idx % 10 == 0:
-        logger.info(f"Processing {f_idx+1}/{len(json_datas)}")
-    response = requests.post('https://www.costa.co.uk/api/mdm/',  headers=headers, json=json_data)
-    js = json.loads(response.text)
 
-    all_items = js['data']['masterProducts']['items']
-    logging.info(f"Total items found in payload {f_idx+1}: {len(all_items)}")
+def get_product_codes_from_website() -> List[str]:
+    """
+    Try to fetch product codes/group codes from the Costa website.
+    This fetches the page and extracts product identifiers from the embedded data.
+    """
+    logger.info("Attempting to fetch product codes from website...")
+    
+    try:
+        response = requests.get(MENU_URL, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+        html_content = response.text
+        
+        # Look for product codes in the page source
+        # Costa's Gatsby site often embeds data in script tags
+        product_codes = set()
+        
+        # Pattern to find MP-XXXXXXX product codes
+        mp_pattern = r'MP-\d{7}'
+        matches = re.findall(mp_pattern, html_content)
+        product_codes.update(matches)
+        
+        # Also look for product names that might be used as group codes
+        # These are often in JSON embedded in script tags
+        json_pattern = r'productDisplayName["\']?\s*:\s*["\']([^"\']+)["\']'
+        name_matches = re.findall(json_pattern, html_content)
+        product_codes.update(name_matches)
+        
+        # Try to find embedded Gatsby data
+        gatsby_data_pattern = r'window\.__GATSBY(?:_DATA)?.*?=\s*({.*?});'
+        gatsby_matches = re.findall(gatsby_data_pattern, html_content, re.DOTALL)
+        for match in gatsby_matches:
+            try:
+                # Try to parse and extract product info
+                mp_in_gatsby = re.findall(mp_pattern, match)
+                product_codes.update(mp_in_gatsby)
+            except:
+                pass
+        
+        logger.info(f"Found {len(product_codes)} potential product codes from website")
+        return list(product_codes)
+        
+    except Exception as e:
+        logger.warning(f"Could not fetch product codes from website: {e}")
+        return []
 
-    for i_idx, all_item in enumerate(all_items):
-        product_name = all_item.get('productDisplayName','')
-        if product_name:
-            product_name = product_name.strip()
-        # print(product_name)
-        if i_idx % 10 == 0:
-            logger.info(f"  Processing item {i_idx+1}/{len(all_items)}, Product Name: {product_name}")
+
+def get_known_product_codes() -> List[str]:
+    """
+    Return a comprehensive list of known Costa Coffee product codes.
+    This is maintained as a fallback when dynamic fetching fails.
+    Updated for 2026 menu items.
+    """
+    # These are group codes that Costa uses for their products
+    # Organized by category for easier maintenance
+    
+    drinks_coffee = [
+        "Latte", "Cappuccino", "Americano", "Flat White", "Mocha", 
+        "Espresso", "Cortado", "Mocha Cortado", "Macchiato",
+        "Spanish Caramelo Latte", "Caramel Latte", "Vanilla Latte",
+        "Hazelnut Latte", "Gingerbread & Cream Latte",
+    ]
+    
+    drinks_hot_chocolate = [
+        "Hot Chocolate", "White Hot Chocolate", 
+        "Terry's Orange Hot Chocolate", "Black Forest Hot Chocolate",
+        "Salted Caramel Hot Chocolate",
+    ]
+    
+    drinks_tea = [
+        "English Breakfast Tea", "Decaf Tea", "Earl Grey Tea", 
+        "Green Tea", "Mint Tea", "Chai Latte",
+        "Superfruity Infusion", "Citrus Zing with Vitamin C",
+        "Spiced Apple with Vitamin B6", "Mellow Mango with Zinc",
+    ]
+    
+    drinks_cold = [
+        "Iced Latte", "Iced Americano Black", "Iced Flat White", "Iced Mocha",
+        "Iced Caramel Latte", "Iced Vanilla Latte",
+        "Mango & Passion Fruit", "Red Summer Berries",
+    ]
+    
+    drinks_frappe = [
+        "Tropical Mango Bubble Frappé", "Strawberries & Cream Frappé",
+        "Salted Caramel Frappé", "Salted Caramel Frappé with Coffee",
+        "Chocolate Fudge Brownie Frappé", "Chocolate Fudge Brownie Frappé Mocha",
+        "Coffee Frappé",
+    ]
+    
+    food_breakfast = [
+        "British Pork Sausage Bap", "British Smoked Bacon Bap",
+        "Egg Mushroom & Spinach Bap (V)", "Egg & Bacon Roll",
+        "Greek Yogurt with Mixed Berry Compote & Granola",
+        "Wholegrain Porridge", "Wholegrain Porridge New",
+        "Seeded Brown Toast", "White Toast",
+    ]
+    
+    food_lunch = [
+        "Turkey Feast Sandwich", "Free Range Egg Mayo Sandwich Without Cress",
+        "Wiltshire Ham & Mature Cheddar Toastie", "Cheese & Tomato Toastie",
+        "Tuna Melt Panini", "Mozzarella & Tomato Panini",
+        "Ham & Cheese Toastie", "Mac & Cheese",
+        "Wiltshire Ham & Mature Cheddar Croissant",
+        "All Day Breakfast Toastie", "BBQ Chicken Toastie",
+    ]
+    
+    food_pastries = [
+        "Croissant", "Almond Croissant (V)", "Chocolate Twist",
+        "Cinnamon Bun", "Pain au Chocolat", "Pain aux Raisins",
+    ]
+    
+    food_cakes = [
+        "Carrot & Walnut Cake", "Blueberry Muffin", "Lemon Muffin",
+        "Terry's Chocolate Orange Muffin", "Chocolate Muffin",
+        "Millionaire's Shortbread", "Chocolate Tiffin",
+        "Raspberry & Almond Bake", "Bakewell Tart", "Lemon Curd Tart",
+        "Lotus Biscoff Cheezecake (Vg)", "All Butter Mince Pie",
+        "Fruited Teacake (Vg)", "Belgian Chocolate Brownie",
+        "Milk Chocolate Cookie", "White Chocolate Cookie",
+    ]
+    
+    food_biscuits = [
+        "Triple Belgian Chocolate Biscuits", "Stem Ginger Biscuits",
+        "Fruit & Oat Biscuits", "Jammy Shortbread Biscuits",
+        "Mini Shortbread Bites", "Caramel Waffles",
+    ]
+    
+    food_gluten_free = [
+        "Millionaire's Shortbread Bar (GF)", "Mince Tart (GF v)",
+        "Costa Milk Choc Chunks Gluten Free Brownie", "Fruity Flapjack (GF v)",
+    ]
+    
+    # Product codes (MP-XXXXXXX format)
+    mp_codes = [
+        "MP-0002247", "MP-0002246", "MP-0002274", "MP-0002248",
+        "MP-0000662", "MP-0002245", "MP-0002260", "MP-0002261",
+        "MP-0002279", "MP-0000463", "MP-0000701", "MP-0000704",
+        "MP-0001671", "MP-0002244", "MP-0001610", "MP-0001669",
+        "MP-0000590", "MP-0002234", "MP-0001114", "MP-0001640",
+        "MP-0002226", "MP-0002227", "MP-0001608", "MP-0000996",
+        "MP-0001271", "MP-0001161", "MP-0001663", "MP-0000447",
+        "MP-0002148", "MP-0001087", "MP-0001086", "MP-0001668",
+        "MP-0002276", "MP-0001681", "MP-0002229", "MP-0002278",
+        "MP-0002275", "MP-0002277", "MP-0002196", "MP-0002280",
+        "MP-0002289", "MP-0002290", "MP-0000518", "MP-0000543",
+        "MP-0000490", "MP-0002198", "MP-0002199", "MP-0002200", "MP-0002201",
+    ]
+    
+    all_codes = (
+        drinks_coffee + drinks_hot_chocolate + drinks_tea + 
+        drinks_cold + drinks_frappe +
+        food_breakfast + food_lunch + food_pastries + 
+        food_cakes + food_biscuits + food_gluten_free +
+        mp_codes
+    )
+    
+    return all_codes
+
+
+def fetch_products_via_graphql(product_codes: List[str], batch_size: int = 25) -> List[Dict]:
+    """
+    Fetch product data from Costa's GraphQL API.
+    Products are fetched in batches to avoid request size limits.
+    Includes retry logic with exponential backoff for network errors.
+    """
+    all_items = []
+    max_retries = 3
+    
+    # Split codes into batches (smaller batches for reliability)
+    for i in range(0, len(product_codes), batch_size):
+        batch = product_codes[i:i + batch_size]
+        batch_json = json.dumps(batch)
+        
+        query = GRAPHQL_QUERY % batch_json
+        payload = {'query': query, 'vars': {}}
+        
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Fetching batch {i//batch_size + 1} ({len(batch)} products), attempt {attempt + 1}...")
+                response = requests.post(
+                    API_URL, 
+                    headers=HEADERS, 
+                    json=payload, 
+                    timeout=60  # Increased timeout
+                )
+                response.raise_for_status()
+                
+                data = response.json()
+                items = data.get('data', {}).get('masterProducts', {}).get('items', [])
+                
+                if items:
+                    all_items.extend(items)
+                    logger.info(f"Fetched {len(items)} items from batch")
+                else:
+                    logger.warning(f"No items returned for batch {i//batch_size + 1}")
+                
+                # Success - break retry loop
+                break
+                    
+            except requests.exceptions.Timeout as e:
+                logger.warning(f"Timeout on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1, 2, 4 seconds
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    sleep(wait_time)
+                else:
+                    logger.error(f"Failed after {max_retries} attempts for batch {i//batch_size + 1}")
+                    
+            except requests.exceptions.RequestException as e:
+                logger.error(f"API request failed for batch {i//batch_size + 1}: {e}")
+                if attempt < max_retries - 1:
+                    sleep(1)
+                    continue
+                break
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse response for batch {i//batch_size + 1}: {e}")
+                break
+        
+        # Be nice to the server - longer pause between batches
+        sleep(1.0)
+    
+    return all_items
+
+
+def parse_product_data(raw_items: List[Dict]) -> List[Dict]:
+    """
+    Parse raw GraphQL response items into a flat structure for CSV export.
+    This fixes the original script's bug where only one item was saved.
+    """
+    parsed_items = []
+    
+    for item in raw_items:
+        product_name = item.get('productDisplayName', '').strip()
         if not product_name:
             continue
-        product_description = all_item.get('productDescription', '')
+            
+        product_description = item.get('productDescription', '')
         if product_description:
-            product_description = product_description.replace("\n",'').strip()
-        all_nutritions = all_item.get('nutritionProducts','')
-        if all_nutritions:
-            for all_nutrition in all_nutritions:
-                size = all_nutrition.get('variations','').get('size','')
-                milkType = all_nutrition.get('variations','').get('milkType','')
-                coffeeType = all_nutrition.get('variations','').get('coffeeType','')
+            product_description = product_description.replace('\n', ' ').strip()
+        
+        nutrition_products = item.get('nutritionProducts', [])
+        
+        if not nutrition_products:
+            # Product with no nutrition variants - save basic info
+            parsed_items.append({
+                'collection_date': date.today().strftime("%b-%d-%Y"),
+                'rest_name': REST_NAME,
+                'Product_Name': product_name,
+                'Product_Description': product_description,
+                'Size': '',
+                'Milk': '',
+                'CoffeeType': '',
+                'Ingredients': '',
+            })
+            continue
+        
+        # Process each nutrition variant (different sizes, milk types, etc.)
+        for nutrition in nutrition_products:
+            variations = nutrition.get('variations', {}) or {}
+            size = variations.get('size', '') or ''
+            milk_type = variations.get('milkType', '') or ''
+            coffee_type = variations.get('coffeeType', '') or ''
+            
+            ingredients = nutrition.get('ingredients', '') or ''
+            
+            # Build the data record
+            record = {
+                'collection_date': date.today().strftime("%b-%d-%Y"),
+                'rest_name': REST_NAME,
+                'Product_Name': product_name,
+                'Product_Description': product_description,
+                'Size': size,
+                'Milk': milk_type,
+                'CoffeeType': coffee_type,
+                'Ingredients': ingredients,
+            }
+            
+            # Add nutrition per 100g
+            nutrition_100g = nutrition.get('nutritionPer100g', {}) or {}
+            for key, value in nutrition_100g.items():
+                record[f"{key}_Per 100g/ml"] = value
+            
+            # Add nutrition per portion
+            nutrition_portion = nutrition.get('nutritionPerPortion', {}) or {}
+            for key, value in nutrition_portion.items():
+                if key != 'portionWeight':  # Avoid duplicate
+                    record[f"{key}_Per Portion"] = value
+            record['portionWeight'] = nutrition_portion.get('portionWeight', '')
+            
+            # Add allergens
+            allergens = nutrition.get('allergens', {}) or {}
+            for key, value in allergens.items():
+                if isinstance(value, str):
+                    # Clean up allergen values
+                    if value in ['No', ' ', '']:
+                        record[key] = ''
+                    else:
+                        record[key] = value
+                elif isinstance(value, dict):
+                    # Handle nested allergen info (e.g., cereals)
+                    for sub_key, sub_value in value.items():
+                        if sub_value not in ['No', ' ', '']:
+                            record[f"{key}_{sub_key}"] = sub_value
+            
+            # Add dietary choices
+            dietary = nutrition.get('dietaryChoices', {}) or {}
+            record['Vegetarian'] = dietary.get('suitableForVegetarians', '')
+            record['Vegan'] = dietary.get('suitableForVegans', '')
+            
+            parsed_items.append(record)
+    
+    return parsed_items
 
+
+def scrape_with_selenium() -> List[Dict]:
+    """
+    Fallback scraper using Selenium for browser automation.
+    Used when the GraphQL API is blocked or not returning data.
+    """
+    logger.info("Starting Selenium browser automation...")
+    
+    try:
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+        from helpers import setup_driver, try_click_accept_cookies
+    except ImportError as e:
+        logger.error(f"Selenium not available: {e}")
+        return []
+    
+    all_items = []
+    
+    # Try to setup driver
+    try:
+        driver = setup_driver()
+        # Set a generous page load timeout
+        driver.set_page_load_timeout(90)
+    except Exception as e:
+        logger.error(f"Could not setup browser driver: {e}")
+        return []
+    
+    try:
+        logger.info(f"Navigating to {MENU_URL} (this may take a minute...)")
+        try:
+            driver.get(MENU_URL)
+        except Exception as e:
+            logger.warning(f"Initial page load timed out or failed: {e}. Trying to continue...")
+            
+        sleep(5)
+        
+        # Accept cookies
+        try_click_accept_cookies(driver)
+        sleep(2)
+        
+        # Process each category
+        for category in ['Drinks', 'Food']:
+            logger.info(f"Processing category: {category}")
+            
+            try:
+                # Find category button
+                cat_btn = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, f"//button[contains(text(), '{category}')]"))
+                )
+                driver.execute_script("arguments[0].click();", cat_btn)
+                sleep(3)
+            except Exception as e:
+                logger.warning(f"Could not click category {category}: {e}")
+                # Try to find any product to at least start scraping
+                pass
+            
+            # Scroll down to load all products
+            logger.info("Scrolling to load products...")
+            for _ in range(5):
+                driver.execute_script("window.scrollBy(0, 1000);")
+                sleep(1)
+            
+            # Get product items
+            # Products are usually in div[role='button'] with an image
+            products = driver.find_elements(By.CSS_SELECTOR, "div[role='button']")
+            found_data = []
+            
+            # Extract basic info first to avoid stale elements
+            for p in products:
                 try:
-                    nutritionPer100g = {f"{k}_Per 100g/ml": v for k, v in all_nutrition['nutritionPer100g'].items()}
+                    img = p.find_element(By.TAG_NAME, "img")
+                    alt = img.get_attribute('alt')
+                    if alt:
+                        found_data.append({'name': alt, 'element': p})
                 except:
-                    nutritionPer100g = ''
-                if not nutritionPer100g:
-                    nutritionPer100g = ''
-
+                    continue
+            
+            logger.info(f"Found {len(found_data)} potential products in {category}")
+            
+            for idx, item in enumerate(found_data):
+                product_name = item['name']
+                logger.info(f"Processing {idx+1}/{len(found_data)}: {product_name}")
+                
                 try:
-                    nutritionPerPortion = {f"{k}_Per Portion": v for k, v in all_nutrition['nutritionPerPortion'].items() if k != 'portionWeight'}
-                except:
-                    nutritionPerPortion = ''
-                if not nutritionPerPortion:
-                    nutritionPerPortion = ''
+                    # Click the product
+                    element = item['element']
+                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+                    sleep(0.5)
+                    driver.execute_script("arguments[0].click();", element)
+                    
+                    # Wait for modal
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='Modal'], [class*='ProductView']"))
+                    )
+                    sleep(1.5)
+                    
+                    # Extract data from modal
+                    record = {
+                        'collection_date': date.today().strftime("%b-%d-%Y"),
+                        'rest_name': REST_NAME,
+                        'Product_Name': product_name,
+                        'Category': category,
+                    }
+                    
+                    # Detailed extraction
+                    try:
+                        modal = driver.find_element(By.CSS_SELECTOR, "[class*='Modal'], [class*='ProductView']")
+                        
+                        # Description
+                        try:
+                            desc = modal.find_element(By.CSS_SELECTOR, "[class*='Description']")
+                            record['Product_Description'] = desc.text.strip()
+                        except:
+                            record['Product_Description'] = ''
+                            
+                        # Ingredients
+                        try:
+                            # Try to find ingredients block
+                            ing_btn = modal.find_element(By.XPATH, ".//button[contains(., 'Ingredients')]")
+                            driver.execute_script("arguments[0].click();", ing_btn)
+                            sleep(0.5)
+                            ing_text = modal.find_element(By.CSS_SELECTOR, "[class*='Ingredients']").text
+                            record['Ingredients'] = ing_text.strip()
+                        except:
+                            record['Ingredients'] = ''
+                            
+                        # Nutrition Table
+                        try:
+                            # Try to expand nutrition accordion
+                            nut_btn = modal.find_element(By.XPATH, ".//button[contains(., 'Nutrition')]")
+                            driver.execute_script("arguments[0].click();", nut_btn)
+                            sleep(0.5)
+                        except:
+                            pass
+                            
+                        # Parse nutrition table if present
+                        try:
+                            rows = modal.find_elements(By.TAG_NAME, "tr")
+                            for row in rows:
+                                cols = row.find_elements(By.TAG_NAME, "td")
+                                if len(cols) >= 2:
+                                    key = cols[0].text.strip()
+                                    val_100 = cols[1].text.strip()
+                                    record[f"{key}_Per 100g/ml"] = val_100
+                                    if len(cols) >= 3:
+                                        val_portion = cols[2].text.strip()
+                                        record[f"{key}_Per Portion"] = val_portion
+                        except:
+                            # Fallback to regex if table parse fails
+                            modal_text = modal.text
+                            patterns = {
+                                'Energy (kJ)': r'(\d+)\s*kJ',
+                                'Energy (kcal)': r'(\d+)\s*kcal',
+                                'Fat': r'Fat\s*[\(\n]?\s*(\d+\.?\d*)\s*g',
+                                'Carbohydrate': r'Carbohydrate\s*[\(\n]?\s*(\d+\.?\d*)\s*g',
+                                'Protein': r'Protein\s*[\(\n]?\s*(\d+\.?\d*)\s*g',
+                                'Salt': r'Salt\s*[\(\n]?\s*(\d+\.?\d*)\s*g',
+                            }
+                            for name, pattern in patterns.items():
+                                match = re.search(pattern, modal_text)
+                                if match:
+                                    record[name] = match.group(1)
+                    except Exception as e:
+                        logger.debug(f"Error in modal extraction for {product_name}: {e}")
+                    
+                    all_items.append(record)
+                    
+                    # Close modal
+                    try:
+                        close_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='Close'], button[class*='Close']")
+                        driver.execute_script("arguments[0].click();", close_btn)
+                    except:
+                        from selenium.webdriver.common.keys import Keys
+                        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    sleep(1.0)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing {product_name}: {e}")
+                    # Try to close modal just in case
+                    try:
+                        from selenium.webdriver.common.keys import Keys
+                        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    except:
+                        pass
+                    continue
+    
+    except Exception as e:
+        logger.error(f"Selenium scraper encountered a major error: {e}")
+    finally:
+        try:
+            driver.quit()
+        except:
+            pass
+    
+    return all_items
 
-                try:
-                    allergens = {f"{k}": '' if v in ['No',' '] else v  for k,v in all_nutrition['allergens'].items() if isinstance(v,str)}
-                except:
-                    allergens = ''
-                if not allergens:
-                    allergens = ''
 
-                ingredients = all_nutrition.get('ingredients','')
-                if not ingredients:
-                    ingredients = ''
-
-                data = {
-                    'Product_Name': product_name,
-                    'Product_Description': product_description,
-                    'Size': size,
-                    'Milk': milkType,
-                    'CoffeeType': coffeeType,
-                    'Ingredients': ingredients,
-                }
-
-                data.update(nutritionPer100g)
-                data.update(nutritionPerPortion)
-                data.update(allergens)
-
-df = pd.DataFrame([data])
-if os.path.exists(file_csv):
-    df.to_csv(file_csv, header=False, index=False, mode='a')
-    logger.info("Data saved to CSV: %s", file_csv)
-else:
-    df.to_csv(file_csv, header=True, index=False, mode='a')
-    logger.info("Data saved to CSV: %s", file_csv)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+def main():
+    """Main entry point for the scraper."""
+    import sys
+    
+    logger.info("Starting Costa Coffee menu scraper")
+    
+    all_items = []
+    
+    # Check if --api flag is passed to try API first (disabled by default due to blocking)
+    use_api = '--api' in sys.argv
+    
+    if use_api:
+        logger.info("API mode enabled - trying GraphQL API first...")
+        # Step 1: Try to get product codes dynamically
+        dynamic_codes = get_product_codes_from_website()
+        
+        # Step 2: Combine with known codes for comprehensive coverage
+        known_codes = get_known_product_codes()
+        all_codes = list(set(dynamic_codes + known_codes))
+        logger.info(f"Using {len(all_codes)} product codes for API query")
+        
+        # Step 3: Try GraphQL API
+        raw_items = fetch_products_via_graphql(all_codes)
+        
+        if raw_items:
+            logger.info(f"GraphQL API returned {len(raw_items)} products")
+            all_items = parse_product_data(raw_items)
+    
+    # Use Selenium if API didn't return data (or wasn't used)
+    if not all_items:
+        if use_api:
+            logger.warning("GraphQL API returned no data, trying Selenium fallback...")
+        else:
+            logger.info("Using Selenium browser automation (API blocked by Costa)...")
+        all_items = scrape_with_selenium()
+    
+    # Step 4: Save results
+    if all_items:
+        # Save to JSON
+        with open(file_json, 'w', encoding='utf-8') as f:
+            json.dump(all_items, f, indent=2, ensure_ascii=False)
+        logger.info(f"Saved {len(all_items)} items to {file_json}")
+        
+        # Save to CSV
+        df = pd.DataFrame(all_items)
+        df.to_csv(file_csv, index=False, encoding='utf-8')
+        logger.info(f"Saved {len(all_items)} items to {file_csv}")
+        
+        print(f"\n{'='*60}")
+        print(f"Successfully scraped {len(all_items)} items from Costa Coffee")
+        print(f"JSON saved to: {file_json}")
+        print(f"CSV saved to: {file_csv}")
+        print(f"{'='*60}\n")
+    else:
+        logger.error("No items scraped! Please check the logs for errors.")
+        print("\nERROR: No items were scraped. The Costa website may have changed.")
+        print("Please check the logs and consider updating the scraper.")
 
 
-
-
-
-
+if __name__ == "__main__":
+    main()

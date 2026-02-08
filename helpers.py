@@ -31,6 +31,26 @@ import platform
 
 logger = logging.getLogger(__name__)
 
+def get_chrome_version():
+    """Detect the major version of Google Chrome installed on the system."""
+    system = platform.system()
+    try:
+        if system == "Darwin":  # macOS
+            cmd = r"/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --version"
+            output = subprocess.check_output(cmd, shell=True).decode()
+            version_match = re.search(r"Google Chrome (\d+)", output)
+            if version_match:
+                return int(version_match.group(1))
+        elif system == "Linux":
+            cmd = "google-chrome --version"
+            output = subprocess.check_output(cmd, shell=True).decode()
+            version_match = re.search(r"Google Chrome (\d+)", output)
+            if version_match:
+                return int(version_match.group(1))
+    except Exception as e:
+        logger.warning(f"Could not detect Chrome version: {e}")
+    return None
+
 def setup_driver(download_dir: str | None = None):
     """Setup Chrome driver with anti-detection options.
     Optionally configures automatic file downloads to download_dir and forces PDFs to download.
@@ -67,7 +87,12 @@ def setup_driver(download_dir: str | None = None):
     options.add_argument(f"--user-agent={random_user_agent}")
     options.add_argument("--disable-blink-features=AutomationControlled")
 
-    driver = uc.Chrome(options=options)
+    chrome_version = get_chrome_version()
+    if chrome_version:
+        logger.info(f"Detected Chrome version {chrome_version}. Forcing ChromeDriver version match.")
+        driver = uc.Chrome(options=options, version_main=chrome_version)
+    else:
+        driver = uc.Chrome(options=options)
     
     # Remove webdriver property
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")

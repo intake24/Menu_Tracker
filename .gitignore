@@ -92,3 +92,5 @@ Scrapy_spiders/*.json
 # Ignore Notes and citation files
 Notes on data collection rounds.docx
 CITATION.cff
+
+.venv/
