@@ -22,13 +22,13 @@ if folder is None:
 else:
     current_folder = folder
 
-BASE_URL = "https://www.brewersfayre.co.uk/en-gb/allergy-nutrition"
-REST_NAME = "Brewers Fayre"
+BASE_URL = "https://www.tabletable.co.uk/en-gb/allergy-nutrition"
+REST_NAME = "Table Table"
 
 # Outputs
-path_out = create_folder('17_BrewersFayre', current_folder)
-file_json = os.path.join(path_out, 'brewersfayre_nutrition.json')
-file_csv = os.path.join(path_out, 'brewersfayre_nutrition.csv')
+path_out = create_folder('21_TableTable', current_folder)
+file_json = os.path.join(path_out, 'tabletable_nutrition.json')
+file_csv = os.path.join(path_out, 'tabletable_nutrition.csv')
 
 def setup_driver():
     options = Options()
@@ -40,7 +40,7 @@ def setup_driver():
     options.add_argument("--disable-setuid-sandbox")
     options.add_argument("--remote-debugging-port=9222")
     
-    user_data_dir = "/tmp/selenium_user_data_bf"
+    user_data_dir = "/tmp/selenium_user_data_tt"
     os.makedirs(user_data_dir, exist_ok=True)
     options.add_argument(f"--user-data-dir={user_data_dir}")
     options.add_experimental_option("useAutomationExtension", False)
@@ -70,16 +70,16 @@ def get_menu_links(driver):
         time.sleep(2)
         
         # Check for the specific links
-        anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/bf-']")
+        anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/tt-']")
         if not anchors:
-            # Fallback: maybe they aren't 'bf-' yet or use absolute URLs
+            # Fallback: maybe they aren't 'tt-' yet or use absolute URLs
             anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/']")
-            anchors = [a for a in anchors if 'bf-' in a.get_attribute('href')]
+            anchors = [a for a in anchors if 'tt-' in a.get_attribute('href')]
 
     except Exception as e:
         print(f"Error during menu discovery initial wait: {e}")
         # Save a snippet for debugging if it fails locally
-        with open("brewers_fayre_error_debug.html", "w") as f:
+        with open("table_table_error_debug.html", "w") as f:
             f.write(driver.page_source[:5000])
         return []
     
@@ -243,7 +243,7 @@ def parse_menu_content(driver, url, menu_name):
             
     return records
 
-def crawl_brewersfayre():
+def crawl_tabletable():
     driver = setup_driver()
     try:
         menus = get_menu_links(driver)
@@ -283,4 +283,4 @@ def crawl_brewersfayre():
         driver.quit()
 
 if __name__ == "__main__":
-    crawl_brewersfayre()
+    crawl_tabletable()

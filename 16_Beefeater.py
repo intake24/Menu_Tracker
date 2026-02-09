@@ -64,39 +64,62 @@ def get_menu_links(driver):
     print(f"Fetching menu links from {BASE_URL}...")
     driver.get(BASE_URL)
     
-    # Wait for content to load
+    # Wait for content to load - increase timeout and use a more general check first
     try:
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/allergy-nutrition/bg-']"))
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.TAG_NAME, "a"))
         )
-    except:
-        print("Timed out waiting for menu links.")
+        # Briefly wait for any dynamic content/scripts
+        time.sleep(2)
+        
+        # Check for the specific links
+        anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/bg-']")
+        if not anchors:
+            # Fallback: maybe they aren't 'bg-' yet or use absolute URLs
+            anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/']")
+            anchors = [a for a in anchors if 'bg-' in a.get_attribute('href')]
+
+    except Exception as e:
+        print(f"Error during menu discovery initial wait: {e}")
+        # Save a snippet for debugging if it fails locally
+        with open("beefeater_error_debug.html", "w") as f:
+            f.write(driver.page_source[:5000])
         return []
     
     menus = []
     # Find active menu links
-    anchors = driver.find_elements(By.CSS_SELECTOR, "a[href*='/allergy-nutrition/bg-']")
     for a in anchors:
         href = a.get_attribute('href')
         if not href:
             continue
             
-        # Get text, looking inside <b> tags if necessary
-        name = a.text.strip()
+        # Robust text extraction using textContent to bypass complex nesting
+        name = a.get_attribute('textContent').strip()
+        
+        # Fallback if textContent is empty (rare but possible)
+        if not name:
+            name = a.text.strip()
+            
+        # Further fallback: check parents/siblings if anchor is truly empty
         if not name:
             try:
-                b_tag = a.find_element(By.TAG_NAME, "b")
-                name = b_tag.text.strip()
+                parent = a.find_element(By.XPATH, "..")
+                name = parent.text.strip()
             except:
                 pass
         
-        # Filter out placeholders or duplicate IDs
-        if not name:
+        # Filter out obvious placeholders
+        if not name or len(name) < 3:
             continue
             
         if href not in [m['url'] for m in menus]:
             menus.append({'url': href, 'name': name})
     
+    if not menus:
+        print("Found 0 valid menu links. Checking for possible bot detection...")
+        if "Checking your browser" in driver.page_source or "Access Denied" in driver.page_source:
+            print("  Warning: Bot detection or Access Denied page detected.")
+
     print(f"Found {len(menus)} valid menu links.")
     return menus
 
