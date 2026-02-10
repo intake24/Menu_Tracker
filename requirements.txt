@@ -57,5 +57,5 @@ webdriver-manager==4.0.2
 # zope.interface==5.4.0
 fake-useragent==2.2.0
 
-google-colab-selenium==1.0.15
+google-colab-selenium==1.0.17
 undetected-chromedriver==3.5.5
