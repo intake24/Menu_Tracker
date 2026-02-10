@@ -1,10 +1,10 @@
 import json
+import itertools
 
 import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from iteration_utilities import flatten
 
 from define_collection_wave import folder
 from helpers import create_folder, cleanhtml
@@ -113,7 +113,7 @@ for category_link in category_links:
     # print(ids)
     item_ids.append(ids)
 
-item_ids = list(flatten(item_ids))
+item_ids = list(itertools.chain.from_iterable(item_ids))
 item_ids = set(item_ids)
 
 mcdonalds_list = []
