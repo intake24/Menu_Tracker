@@ -51,62 +51,88 @@ def get_chrome_version():
         logger.warning(f"Could not detect Chrome version: {e}")
     return None
 
-def setup_driver(download_dir: str | None = None):
+def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] | None = None):
     """Setup Chrome driver with anti-detection options.
-    Optionally configures automatic file downloads to download_dir and forces PDFs to download.
+
+    Tries undetected_chromedriver first (better bot-detection evasion).
+    Falls back to plain webdriver.Chrome via webdriver-manager when the
+    uc driver download or launch fails (e.g. flaky network).
+
+    The fallback always includes ``--disable-http2`` to avoid
+    ERR_HTTP2_PROTOCOL_ERROR on sites that reject HTTP/2 from headless
+    Chrome (harmless on sites that accept it).
+
+    Args:
+        download_dir: Optional directory for automatic file downloads.
+        extra_chrome_args: Optional list of additional Chrome CLI flags
+            applied to *both* the uc and fallback driver.
     """
     ua = UserAgent()
     random_user_agent = ua.random
-    
-    # options = Options()
-    # options.add_argument('--headless=new')
-    # options.add_argument('--no-sandbox')
-    # options.add_argument('--disable-dev-shm-usage')
-    # options.add_argument(f"--user-agent={random_user_agent}")
-    # options.add_argument("--disable-blink-features=AutomationControlled")
-    # options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    # options.add_experimental_option('useAutomationExtension', False)
-    # # Configure downloads if requested
-    # if download_dir:
-    #     prefs = {
-    #         "download.default_directory": download_dir,
-    #         "download.prompt_for_download": False,
-    #         "download.directory_upgrade": True,
-    #         # Force Chrome to download PDFs instead of opening in viewer
-    #         "plugins.always_open_pdf_externally": True,
-    #     }
-    #     options.add_experimental_option("prefs", prefs)
-    
-    # service = Service(ChromeDriverManager().install())
-    # driver = webdriver.Chrome(service=service, options=options)
-    
-    options = uc.ChromeOptions()
-    options.headless = True 
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument(f"--user-agent={random_user_agent}")
-    options.add_argument("--disable-blink-features=AutomationControlled")
+    extra = extra_chrome_args or []
 
-    chrome_version = get_chrome_version()
-    if chrome_version:
-        logger.info(f"Detected Chrome version {chrome_version}. Forcing ChromeDriver version match.")
-        driver = uc.Chrome(options=options, version_main=chrome_version)
-    else:
-        driver = uc.Chrome(options=options)
-    
-    # Remove webdriver property
-    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    
-    # In headless mode allow downloads to the specified directory (if provided)
-    if download_dir:
+    # --- Try undetected_chromedriver first ---
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
         try:
-            driver.execute_cdp_cmd("Page.setDownloadBehavior", {
-                "behavior": "allow",
-                "downloadPath": download_dir
-            })
-        except Exception:
-            pass
-    
+            options = uc.ChromeOptions()
+            options.headless = True
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument(f"--user-agent={random_user_agent}")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            for arg in extra:
+                options.add_argument(arg)
+
+            chrome_version = get_chrome_version()
+            if chrome_version:
+                logger.info(f"Detected Chrome version {chrome_version}. Forcing ChromeDriver version match.")
+                driver = uc.Chrome(options=options, version_main=chrome_version)
+            else:
+                driver = uc.Chrome(options=options)
+
+            driver.execute_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
+
+            if download_dir:
+                try:
+                    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+                        "behavior": "allow",
+                        "downloadPath": download_dir
+                    })
+                except Exception:
+                    pass
+
+            return driver
+
+        except Exception as exc:
+            logger.warning(f"setup_driver() attempt {attempt}/{max_attempts} failed: {exc}")
+            if attempt < max_attempts:
+                sleep(1)
+
+    # --- Fallback: plain webdriver.Chrome via webdriver-manager ---
+    logger.warning("Primary setup_driver() failed, falling back to webdriver.Chrome()")
+    fallback_args = ['--disable-http2'] + extra
+    opts = Options()
+    opts.add_argument('--headless=new')
+    opts.add_argument('--no-sandbox')
+    opts.add_argument('--disable-dev-shm-usage')
+    opts.add_argument(f"--user-agent={random_user_agent}")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    for arg in fallback_args:
+        opts.add_argument(arg)
+    if download_dir:
+        prefs = {
+            "download.default_directory": download_dir,
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": True,
+            "plugins.always_open_pdf_externally": True,
+        }
+        opts.add_experimental_option("prefs", prefs)
+
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=opts)
     return driver
 
 def clean_text(text):
