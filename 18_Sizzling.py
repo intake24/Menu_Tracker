@@ -18,9 +18,15 @@ file_csv = path_out + '/sizzling_nutrition.csv'
 REST_NAME = "Sizzling Pubs"
 
 START_URL = 'https://www.sizzlingpubs.co.uk/food#'
-menu_urls_xpath_expr = "//*[@class='image parbase section']"
+menu_urls_xpath_expr = "//*[contains(@class,'MenuListing__wrapper')]"
 
 logger = logging.getLogger(__name__)
+
+
+def _get_menu_urls(driver) -> list[str]:
+    menu_els = driver.find_elements(By.XPATH, menu_urls_xpath_expr + "//a")
+    return [href for el in menu_els if (href := el.get_attribute("href"))]
+
 
 def _parse_nutrition_table_from(container, driver) -> dict:
     """Parse a two-column nutrition table within the given container. Returns label->value mapping."""
@@ -331,8 +337,7 @@ def crawl_nutrition():
         )
         logger.info('Menu items loaded.')
 
-        menu_els = menu_driver.find_elements(By.XPATH, menu_urls_xpath_expr + "//a")
-        food_menus_urls = [el.get_attribute("href") for el in menu_els]
+        food_menus_urls = _get_menu_urls(menu_driver)
         logger.info('Found %d menu items', len(food_menus_urls))
 
         for idx, menu_url in enumerate(food_menus_urls):

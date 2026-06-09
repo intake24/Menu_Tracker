@@ -13,6 +13,7 @@ from helpers import create_folder, setup_driver
 
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, NoSuchElementException
+from selenium.webdriver.support.ui import WebDriverWait
 
 import requests
 
@@ -80,6 +81,19 @@ def extract_menu_guids(tree) -> list[tuple[str, str]]:
             seen.add(guid)
             pairs.append((name.strip(), guid))
     return pairs
+
+
+def wait_for_menu_pairs(driver, timeout: int = 15) -> list[tuple[str, str]]:
+    """Wait for the client-rendered Ten Kites menu selector."""
+    try:
+        return WebDriverWait(driver, timeout).until(
+            lambda current_driver: extract_menu_guids(
+                html.fromstring(current_driver.page_source)
+            )
+        )
+    except Exception:
+        return extract_menu_guids(html.fromstring(driver.page_source))
+
 
 def extract_items_from_html(page_source: str, menu_name: str) -> List[Dict]:
     """Parse Ten Kites rendered menu HTML without attempting JS clicks.
@@ -327,29 +341,32 @@ def main():
     items: List[Dict] = []
     try:
         driver.get(LANDING_URL)
-        time.sleep(1.5)
         accept_cookies(driver)
 
+        menu_pairs = wait_for_menu_pairs(driver)
         src = driver.page_source
-        menu_pairs = extract_menu_guids(html.fromstring(src))
         print(f"Found {len(menu_pairs)} menus")
-        for menu_name, guid in menu_pairs:
-            print(f'Rendering menu "{menu_name}" via mguid: {guid}')
-            url = f"{LANDING_URL}?mguid={guid}"
-            print(f"Render url: {url}")
-            driver.get(url)
-            time.sleep(1.0)
-            page_src = driver.page_source
-            items_html = extract_items_from_html(page_src, menu_name)
-            if not items_html:  # fallback to JSON-LD if cards not yet visible or rendered differently
-                jsonld_items = parse_jsonld_recursive(page_src)
-                # Filter only those matching this menu_name (case-insensitive)
-                filtered = [r for r in jsonld_items if r.get('menu_name','').lower() == menu_name.lower()]
-                print(f"    Parsed {len(filtered)} JSON-LD items from menu '{menu_name}' (fallback)" )
-                items.extend(filtered)
-            else:
-                print(f"    Parsed {len(items_html)} items from menu '{menu_name}'")
-                items.extend(items_html)
+        if not menu_pairs:
+            items = parse_jsonld_recursive(src)
+            print(f"Parsed {len(items)} JSON-LD items from landing page (fallback)")
+        else:
+            for menu_name, guid in menu_pairs:
+                print(f'Rendering menu "{menu_name}" via mguid: {guid}')
+                url = f"{LANDING_URL}?mguid={guid}"
+                print(f"Render url: {url}")
+                driver.get(url)
+                time.sleep(1.0)
+                page_src = driver.page_source
+                items_html = extract_items_from_html(page_src, menu_name)
+                if not items_html:  # fallback to JSON-LD if cards not yet visible or rendered differently
+                    jsonld_items = parse_jsonld_recursive(page_src)
+                    # Filter only those matching this menu_name (case-insensitive)
+                    filtered = [r for r in jsonld_items if r.get('menu_name','').lower() == menu_name.lower()]
+                    print(f"    Parsed {len(filtered)} JSON-LD items from menu '{menu_name}' (fallback)" )
+                    items.extend(filtered)
+                else:
+                    print(f"    Parsed {len(items_html)} items from menu '{menu_name}'")
+                    items.extend(items_html)
 
     finally:
         try:
@@ -359,6 +376,8 @@ def main():
 
     # Final dedupe after all collection passes
     items = dedupe_items(items)
+    if not items:
+        raise RuntimeError("Cafe Rouge scrape returned no items; existing outputs were not overwritten")
     save_outputs(items)
 
 

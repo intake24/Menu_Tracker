@@ -7,6 +7,7 @@ from ssl import OP_SINGLE_DH_USE
 # from tkinter import E
 import urllib
 from datetime import date
+from pathlib import Path
 from time import sleep
 
 import pandas as pd
@@ -30,6 +31,48 @@ import define_collection_wave as dcw
 import platform
 
 logger = logging.getLogger(__name__)
+
+
+def find_cached_chromedriver(chrome_version: int, search_roots=None):
+    """Return a local ChromeDriver matching the installed Chrome major version."""
+    roots = search_roots or [
+        Path(__file__).resolve().parent / ".drivers",
+        Path.home() / ".wdm" / "drivers" / "chromedriver",
+    ]
+    version_prefix = f"{chrome_version}."
+    candidates = []
+
+    for root in map(Path, roots):
+        if not root.exists():
+            continue
+        for path in root.rglob("chromedriver"):
+            if path.is_file() and any(
+                part.startswith(version_prefix) for part in path.parts
+            ):
+                candidates.append(path)
+
+    if not candidates:
+        return None
+    return str(max(candidates, key=lambda path: path.stat().st_mtime))
+
+
+def prepare_cached_chromedriver(driver_path: str, chrome_version: int):
+    """Patch a cached driver and repair its macOS signature before launch."""
+    patcher = uc.Patcher(
+        executable_path=driver_path,
+        version_main=chrome_version,
+    )
+    if not patcher.is_binary_patched(driver_path):
+        patcher.patch_exe()
+
+    if platform.system() == "Darwin":
+        subprocess.run(
+            ["codesign", "--force", "--sign", "-", driver_path],
+            check=True,
+            capture_output=True,
+        )
+    return driver_path
+
 
 def get_chrome_version():
     """Detect the major version of Google Chrome installed on the system."""
@@ -70,6 +113,15 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
     ua = UserAgent()
     random_user_agent = ua.random
     extra = extra_chrome_args or []
+    chrome_version = get_chrome_version()
+    cached_driver = (
+        find_cached_chromedriver(chrome_version) if chrome_version else None
+    )
+    if cached_driver:
+        cached_driver = prepare_cached_chromedriver(
+            cached_driver,
+            chrome_version,
+        )
 
     # --- Try undetected_chromedriver first ---
     max_attempts = 3
@@ -84,10 +136,15 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
             for arg in extra:
                 options.add_argument(arg)
 
-            chrome_version = get_chrome_version()
             if chrome_version:
                 logger.info(f"Detected Chrome version {chrome_version}. Forcing ChromeDriver version match.")
-                driver = uc.Chrome(options=options, version_main=chrome_version)
+                if cached_driver:
+                    logger.info("Using cached ChromeDriver: %s", cached_driver)
+                driver = uc.Chrome(
+                    options=options,
+                    version_main=chrome_version,
+                    driver_executable_path=cached_driver,
+                )
             else:
                 driver = uc.Chrome(options=options)
 
@@ -131,7 +188,9 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
         }
         opts.add_experimental_option("prefs", prefs)
 
-    service = Service(ChromeDriverManager().install())
+    service = Service(
+        cached_driver or ChromeDriverManager().install()
+    )
     driver = webdriver.Chrome(service=service, options=opts)
     return driver
 
@@ -270,6 +329,8 @@ def create_folder(rest_name, folder):
     rest_folder  =  rest_name + '_' + date.today().strftime("%b-%d-%Y")
     # Resolve base directory robustly
     base = getattr(dcw, 'folder', None)
+    if base is None:
+        raise RuntimeError("Collection folder not set. Call define_collection_wave.create_collection() first.")
     if not os.path.isabs(base):
         base = os.path.join(os.getcwd(), base)
     os.makedirs(base, exist_ok=True)

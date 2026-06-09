@@ -17,8 +17,11 @@ file_json = path_out + '/tobycarvery_nutrition.json'
 file_csv = path_out + '/tobycarvery_nutrition.csv'
 REST_NAME = "Toby Carvery"
 
-START_URL = 'https://www.tobycarvery.co.uk/carvery#/'
-menu_urls_xpath_expr = "//*[@class='button parbase section']"
+START_URL = 'https://www.tobycarvery.co.uk/menus/food#/'
+menu_urls_xpath_expr = (
+    "//section[contains(@class,'MenuListing__grid')]"
+    "//a[contains(@class,'MenuListingItem__link') and contains(@href,'/menus/')]"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +334,7 @@ def crawl_nutrition():
         )
         logger.info('Menu items loaded.')
 
-        menu_els = menu_driver.find_elements(By.XPATH, menu_urls_xpath_expr + "//a")
+        menu_els = menu_driver.find_elements(By.XPATH, menu_urls_xpath_expr)
         food_menus_urls = [el.get_attribute("href") for el in menu_els]
         logger.info('Found %d menu items', len(food_menus_urls))
 

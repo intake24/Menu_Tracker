@@ -2,7 +2,8 @@ import os
 from typing import Optional
 
 # Module-level variable that other modules import
-folder: Optional[str] = None
+# Auto-initialise from env var so subprocess children inherit the collection path
+folder: Optional[str] = os.environ.get('MENUTRACKER_COLLECTION') or None
 
 def _detect_base_dir() -> str:
     try:
@@ -31,6 +32,7 @@ def create_collection(collection_name: str = "default_collection") -> str:
         print(f"Error creating folder '{target}': {e}")
         # Still set folder to allow downstream code to see attempted path
     folder = target
+    os.environ['MENUTRACKER_COLLECTION'] = target
     print(f"Collection folder: {folder}")
     return target
 
