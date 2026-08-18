@@ -1,22 +1,16 @@
 import json
-import re
 from datetime import date
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
+from urllib.parse import urljoin, urlparse
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup  # already in requirements
 
-from define_collection_wave import folder
+import define_collection_wave as dcw
 from helpers import create_folder, PDFDownloader
 
-path_zizzi = create_folder('24_Zizzi', folder)
-file_zizzi_json = path_zizzi + '/zizzi_menu.json'
-file_zizzi_csv = path_zizzi + '/zizzi_menu.csv'
-
 FULL_MENU_URL = 'https://www.zizzi.co.uk/menus/full-menu'
-MENUS_FROM_IDS_URL = 'https://www.zizzi.co.uk/wp-json/menus/get_menus_from_ids?ids={ids}'
-MENU_FROM_NAME_URL = 'https://www.zizzi.co.uk/wp-json/menus/get_menu_from_name?name={name}'
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
@@ -24,100 +18,93 @@ HEADERS = {
 }
 
 
-def fetch(url: str, expect_json: bool = False) -> Any:
+def fetch(url: str) -> str:
     """Helper to GET a URL with basic error handling."""
     r = requests.get(url, headers=HEADERS, timeout=30)
     r.raise_for_status()
-    return r.json() if expect_json else r.text
+    return r.text
+
 
 def extract_pdf_urls(html: str) -> List[str]:
-    """Extract PDF URLs from the menu page HTML."""
+    """Extract unique PDF links from the current Zizzi menu page."""
     soup = BeautifulSoup(html, 'html.parser')
-    pdf_urls = []
-    container = soup.find('div', class_='js-menus')
-    if not container:
-        print('No menu container found for PDF extraction')
-        return []
-    for data in ['data-allergen', 'data-ingredients', 'data-nutritional']:
-        if data:
-            # Find all URLs ending with .pdf using regex
-            url = container.get(data, '')
-            if url:
-                pdf_urls.extend(re.findall(r'https?://[^\s"\']+\.pdf', url))
+    pdf_urls: List[str] = []
+    for link in soup.select('a[href]'):
+        url = urljoin(FULL_MENU_URL, link['href'].strip())
+        if urlparse(url).path.lower().endswith('.pdf') and url not in pdf_urls:
+            pdf_urls.append(url)
     return pdf_urls
-def extract_menu_ids(html: str) -> List[str]:
-    """Extract menu IDs from the data-menus attribute of the main container."""
+
+
+def _as_list(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, dict):
+        return [value]
+    return value if isinstance(value, list) else []
+
+
+def _dietary(value: Any) -> Any:
+    values = value if isinstance(value, list) else [value]
+    labels = [str(item).rstrip('/').split('/')[-1] for item in values if item]
+    return '; '.join(labels) if labels else None
+
+
+def extract_menu_records(html: str, collection_date: str = None) -> List[Dict[str, Any]]:
+    """Flatten Zizzi's JSON-LD Menu data into the project CSV record format."""
+    collection_date = collection_date or date.today().strftime('%b-%d-%Y')
     soup = BeautifulSoup(html, 'html.parser')
-    container = soup.find('div', class_='js-menus')
-    if not container:
-        # Fallback: regex search
-        match = re.search(r'data-menus=\"(.*?)\"', html)
-        if match:
-            raw = match.group(1)
-        else:
-            return []
-    else:
-        raw = container.get('data-menus', '')
-    # raw expected like: [6597,6662,...]
-    raw = raw.strip().strip('[]')
-    if not raw:
-        return []
-    return [part.strip() for part in raw.split(',') if part.strip()]
-
-
-def fetch_menu_names(ids: List[str]) -> List[str]:
-    if not ids:
-        return []
-    joined = ','.join(ids)
-    data = fetch(MENUS_FROM_IDS_URL.format(ids=joined), expect_json=True)
-    # data structure: { 'data': [ { 'name': ... }, ... ] }
-    menus = data.get('data', []) if isinstance(data, dict) else []
-    return [m.get('name') for m in menus if isinstance(m, dict) and m.get('name')]
-
-
-def fetch_menu(name: str) -> Optional[Dict[str, Any]]:
-    if not name:
-        return None
-    data = fetch(MENU_FROM_NAME_URL.format(name=name), expect_json=True)
-    return data.get('data') if isinstance(data, dict) else None
-
-
-def parse_menu_sections(menu_name: str, menu_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    sections = menu_data.get('menu_sections', []) if menu_data else []
-    out: List[Dict[str, Any]] = []
-    collection_date = date.today().strftime('%b-%d-%Y')
-    for section in sections:
-        section_type = section.get('type')
-        section_title = section.get('section_title')
-        if section_type == 'section':
-            items = section.get('items', [])
-            out.extend(build_item_records(collection_date, menu_name, section_title, items))
-        elif section_type == 'subsections':
-            for sub in section.get('subsections', []) or []:
-                items = sub.get('items', [])
-                out.extend(build_item_records(collection_date, menu_name, section_title, items))
-    return out
-
-
-def build_item_records(collection_date: str, menu_name: str, section_title: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
-    for item in items:
-        if not isinstance(item, dict):
+
+    def add_items(menu_name: str, section: str, sub_sections: List[str], items: Any) -> None:
+        for item in _as_list(items):
+            if item.get('@type') != 'MenuItem' or not item.get('name'):
+                continue
+            offers = _as_list(item.get('offers'))
+            offer = offers[0] if offers else {}
+            price = offer.get('price')
+            if price not in (None, ''):
+                price = str(price)
+                if not price.startswith('£'):
+                    price = f'£{price}'
+            nutrition = item.get('nutrition') if isinstance(item.get('nutrition'), dict) else {}
+            record = {
+                'collection_date': collection_date,
+                'rest_name': 'Zizzi',
+                'menu_name': menu_name,
+                'menu_section': section,
+                'item_name': item.get('name'),
+                'item_id': item.get('id'),
+                'kcal': nutrition.get('calories'),
+                'item_description': BeautifulSoup(item.get('description') or '', 'html.parser').get_text(' ', strip=True),
+                'price': price,
+                'dietary': _dietary(item.get('suitableForDiet')),
+            }
+            if sub_sections:
+                record['menu_sub_section'] = ' > '.join(sub_sections)
+            records.append(record)
+
+    def walk_sections(menu_name: str, sections: Any, top_section: str = '', sub_sections: List[str] = None) -> None:
+        for section in _as_list(sections):
+            if section.get('@type') != 'MenuSection':
+                continue
+            name = (section.get('name') or '').strip()
+            current_top = top_section or name
+            current_sub_sections = list(sub_sections or [])
+            if top_section and name:
+                current_sub_sections.append(name)
+            add_items(menu_name, current_top, current_sub_sections, section.get('hasMenuItem'))
+            walk_sections(menu_name, section.get('hasMenuSection'), current_top, current_sub_sections)
+
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            payload = json.loads(script.string or script.get_text())
+        except (TypeError, json.JSONDecodeError):
             continue
-        prices = (item.get('prices') or {}) if isinstance(item.get('prices'), dict) else {}
-        record = {
-            'collection_date': collection_date,
-            'rest_name': 'Zizzi',
-            'menu_name': menu_name,
-            'menu_section': section_title,
-            'item_name': item.get('name'),
-            'item_id': item.get('id'),
-            'kcal': item.get('calorie_information'),
-            'item_description': item.get('description'),
-            'price': prices.get('core_price_point'),
-            'dietary': item.get('dietary')
-        }
-        records.append(record)
+        candidates = _as_list(payload)
+        if isinstance(payload, dict):
+            candidates += _as_list(payload.get('@graph'))
+        for menu in candidates:
+            if menu.get('@type') == 'Menu':
+                walk_sections((menu.get('name') or 'Menu').strip(), menu.get('hasMenuSection'))
     return records
 
 
@@ -125,8 +112,10 @@ def crawl_zizzi_menu():
     try:
         print('Fetching full menu page...')
         html = fetch(FULL_MENU_URL)
+        path_zizzi = create_folder('24_Zizzi', dcw.folder)
+        file_zizzi_json = path_zizzi + '/zizzi_menu.json'
+        file_zizzi_csv = path_zizzi + '/zizzi_menu.csv'
 
-        # Extract any embedded PDF URLs first and download them (if present)
         pdf_urls = extract_pdf_urls(html)
         if pdf_urls:
             print(f'Found {len(pdf_urls)} PDF URL(s); downloading...')
@@ -136,25 +125,10 @@ def crawl_zizzi_menu():
                 PDFDownloader(url, filepath)
                 print(f'Downloaded PDF to {filepath}')
         else:
-            print('No PDF URLs found in page attributes.')
+            print('No PDF URLs found.')
 
-        ids = extract_menu_ids(html)
-        print(f'Found {len(ids)} menu id(s)')
-        menu_names = fetch_menu_names(ids)
-        print(f'Found {len(menu_names)} menu name(s)')
-        results: List[Dict[str, Any]] = []
-        for name in menu_names:
-            try:
-                menu_data = fetch_menu(name)
-                if not menu_data:
-                    print(f'No data for menu {name}')
-                    continue
-                section_records = parse_menu_sections(name, menu_data)
-                print(f"Menu '{name}': {len(section_records)} item(s)")
-                results.extend(section_records)
-            except Exception as e:
-                print(f'Error processing menu {name}: {e}')
-                continue
+        results = extract_menu_records(html)
+        print(f'Found {len(results)} menu item(s) in JSON-LD.')
         
         # Save JSON
         with open(file_zizzi_json, 'w') as f:
@@ -167,6 +141,7 @@ def crawl_zizzi_menu():
         print(f'Scraped {len(results)} items.')
         print(f'JSON data saved to {file_zizzi_json}')
         print(f'CSV data saved to {file_zizzi_csv}')
+        return results
     except Exception as e:
         print(f'Error during Zizzi scraping: {e}')
 
