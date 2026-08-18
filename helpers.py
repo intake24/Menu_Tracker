@@ -486,7 +486,7 @@ def combo_PDFDownload_class_name(rest_name, url, keyword='pdf', prex=None, verif
 def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text=False,
                  partial_link_value='Download', navigate_to_links=False, wait_time=5,
                  handle_runtime_pdf: bool = True, download_filename: str | None = None,
-                 download_via_browser: bool = False):
+                 download_via_browser: bool = False, click_xpath=None, url_pattern=None):
     """
     Download PDFs using Selenium with flexible link discovery options.
     
@@ -500,6 +500,8 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
         navigate_to_links: If True, navigate to each link to get final URL
         wait_time: Seconds to wait between operations
         download_via_browser: Download direct PDF links through Chrome instead of requests
+        click_xpath: Optional element to click before discovering links
+        url_pattern: Optional regex for extracting links from rendered page source
     """
     # Create folder and configure driver to download into it when handling runtime PDFs
     path = create_folder(rest_name, getattr(dcw, 'folder', None))
@@ -511,6 +513,13 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
         print(f'2. Browsing: {url}')
         driver.get(url)
         sleep(wait_time)
+
+        if click_xpath:
+            triggers = driver.find_elements(By.XPATH, click_xpath)
+            if not triggers:
+                raise RuntimeError(f'No element found for click XPath: {click_xpath}')
+            driver.execute_script("arguments[0].click();", triggers[0])
+            sleep(wait_time)
         
         # Helper: wait for a new PDF file to appear in download dir
         def wait_for_new_pdf(dir_path: str, before_set: set[str], timeout: int = 60) -> str | None:
@@ -528,7 +537,11 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
 
         # Discover potential links or buttons
         elements = []
-        if use_partial_link_text and partial_link_value:
+        links = []
+        if url_pattern:
+            print(f'3. Finding links in rendered page source: {url_pattern}')
+            links = re.findall(url_pattern, driver.page_source)
+        elif use_partial_link_text and partial_link_value:
             print(f'3. Finding elements by partial text: {partial_link_value}')
             elements = driver.find_elements(By.PARTIAL_LINK_TEXT, partial_link_value)
         elif xpath_:
@@ -539,14 +552,14 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
             print('3. Finding default PDF triggers (Download|PDF|Allergen)')
             elements = driver.find_elements(By.XPATH, "//a[contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'pdf') or contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'download') or contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'allergen')] | //button[contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'pdf') or contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'download') or contains(translate(., 'PDFDOWNLOADALLERGEN', 'pdfdownloadallergen'),'allergen')] ")
 
-        print(f'4. Found {len(elements)} potential PDF trigger(s)')
+        print(f'4. Found {len(links) or len(elements)} potential PDF trigger(s)')
 
         # First try href-based downloads via requests
-        links = []
         for el in elements:
             href = el.get_attribute('href')
             if href:
                 links.append(href)
+        links = list(dict.fromkeys(links))
 
         if links:
             for i, link in enumerate(links):

@@ -25,9 +25,38 @@ class RunnerTests(unittest.TestCase):
             started_at = time.time()
             os.utime(output, (started_at - 1, started_at - 1))
             self.assertFalse(validate_outputs(directory, ["*.csv"], started_at)[0]["ok"])
-            output.write_text("new", encoding="utf-8")
+            output.write_text("name\nnew\n", encoding="utf-8")
             os.utime(output, (started_at + 1, started_at + 1))
             self.assertTrue(validate_outputs(directory, ["*.csv"], started_at)[0]["ok"])
+
+    def test_output_contract_rejects_empty_or_invalid_structured_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            started_at = time.time() - 1
+            cases = {
+                "header_only.csv": "name\n",
+                "empty.json": "[]\n",
+                "fake.pdf": "<html>blocked</html>",
+            }
+            for name, content in cases.items():
+                output = root / name
+                output.write_text(content, encoding="utf-8")
+                result = validate_outputs(root, [name], started_at)[0]
+                self.assertFalse(result["ok"])
+                self.assertFalse(result["files"][0]["semantic_ok"])
+                self.assertTrue(result["files"][0]["reason"])
+
+    def test_output_contract_accepts_valid_structured_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            started_at = time.time() - 1
+            (root / "result.csv").write_text("name\nitem\n", encoding="utf-8")
+            (root / "result.json").write_text('[{"name": "item"}]\n', encoding="utf-8")
+            (root / "result.pdf").write_bytes(b"%PDF-1.7\nfixture")
+            for name in ("result.csv", "result.json", "result.pdf"):
+                result = validate_outputs(root, [name], started_at)[0]
+                self.assertTrue(result["ok"])
+                self.assertTrue(result["files"][0]["semantic_ok"])
 
     def test_failure_classification(self):
         self.assertEqual(classify_failure({"stderr": "HTTP 429", "stdout": ""}), "external")

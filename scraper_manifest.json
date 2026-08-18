@@ -1,6 +1,141 @@
 {
   "scrapers": [
     {
+      "script": "1_McDonalds.py",
+      "outputs": [
+        "1_McDonalds_*/mcdonalds_items.csv",
+        "1_McDonalds_*/item_*.json"
+      ]
+    },
+    {
+      "script": "2_Wetherspoons.py",
+      "outputs": [
+        "2_Wetherspoons_*/Wetherspoons_items.csv",
+        "2_Wetherspoons_*/pub_*.json"
+      ]
+    },
+    {
+      "script": "3_CostaCoffee_selenium.py",
+      "outputs": [
+        "3_CostaCoffee_*/costacoffee_nutrition.json",
+        "3_CostaCoffee_*/costacoffee_nutrition.csv"
+      ]
+    },
+    {
+      "script": "4_Greggs.py",
+      "outputs": [
+        "4_Greggs_*/greggs.json",
+        "4_Greggs_*/greggs_items.csv"
+      ]
+    },
+    {
+      "script": "5_KFC.py",
+      "outputs": [
+        "5_KFC_*/kfc_nutrition.json",
+        "5_KFC_*/kfc_nutrition.csv"
+      ]
+    },
+    {
+      "script": "6_Dominos.py",
+      "outputs": [
+        "6_Dominos_*/*.pdf"
+      ]
+    },
+    {
+      "script": "7_Starbucks.py",
+      "outputs": [
+        "7_Starbucks_*/*AllergenBook*.pdf"
+      ]
+    },
+    {
+      "script": "8_PizzaHut.py",
+      "outputs": [
+        "8_Pizzahut_*/*AIN*.pdf"
+      ]
+    },
+    {
+      "script": "9_Subway.py",
+      "outputs": [
+        "9_Subway_*/*NutritionalInformation*.pdf",
+        "9_Subway_*/*AllergenInformation*.pdf"
+      ]
+    },
+    {
+      "script": "10_Nandos.py",
+      "outputs": [
+        "10_Nandos_*/nandos_nutrition.json",
+        "10_Nandos_*/nandos_nutrition.csv"
+      ]
+    },
+    {
+      "script": "11_PizzaExpress.py",
+      "outputs": [
+        "11_PizzaExpress_*/*.pdf"
+      ]
+    },
+    {
+      "script": "12_BurgerKing.py",
+      "outputs": [
+        "12_BurgerKing_*/burgerking_nutrition.json",
+        "12_BurgerKing_*/burgerking_nutrition.csv"
+      ]
+    },
+    {
+      "script": "13_Pret.py",
+      "outputs": [
+        "13_Pret_*/pret_nutrition.json",
+        "13_Pret_*/pret_nutrition.csv"
+      ]
+    },
+    {
+      "script": "14_CaffeNero.py",
+      "outputs": [
+        "14_CaffeNero_*/caffenero_items.json",
+        "14_CaffeNero_*/caffenero_items.csv"
+      ]
+    },
+    {
+      "script": "15_Wagamama.py",
+      "outputs": [
+        "15_Wagamama_*/wagamama_nutrition.json",
+        "15_Wagamama_*/wagamama_nutrition.csv"
+      ]
+    },
+    {
+      "script": "16_Beefeater.py",
+      "outputs": [
+        "16_Beefeater_*/beefeater_nutrition.json",
+        "16_Beefeater_*/beefeater_nutrition.csv"
+      ]
+    },
+    {
+      "script": "17_BrewersFayre.py",
+      "outputs": [
+        "17_BrewersFayre_*/brewersfayre_nutrition.json",
+        "17_BrewersFayre_*/brewersfayre_nutrition.csv"
+      ]
+    },
+    {
+      "script": "18_Sizzling.py",
+      "outputs": [
+        "18_Sizzling_*/sizzling_nutrition.json",
+        "18_Sizzling_*/sizzling_nutrition.csv"
+      ]
+    },
+    {
+      "script": "19_EmberInns.py",
+      "outputs": [
+        "19_EmberInns_*/emberinns_nutrition.json",
+        "19_EmberInns_*/emberinns_nutrition.csv"
+      ]
+    },
+    {
+      "script": "20_ChefBrewer.py",
+      "outputs": [
+        "20_ChefBrewer_*/*.pdf"
+      ]
+    },
+    {
       "script": "22_TobyCarvery.py",
       "outputs": [
         "22_TobyCarvery_*/tobycarvery_nutrition.json",

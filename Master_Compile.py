@@ -24,7 +24,7 @@ def parse_args(argv=None):
         metavar="SCRIPT",
         help="Manifest script names to run; omit to run every manifest entry",
     )
-    parser.add_argument("--workers", type=int, default=5, help="Concurrent scrapers (default: 5)")
+    parser.add_argument("--workers", type=int, default=1, help="Concurrent scrapers (default: 1)")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence-dir", type=Path, default=ROOT / "evidence")
     parser.add_argument(

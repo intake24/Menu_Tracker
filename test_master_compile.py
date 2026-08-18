@@ -5,6 +5,9 @@ import Master_Compile
 
 
 class MasterCompileTests(unittest.TestCase):
+    def test_defaults_to_serial_execution(self):
+        self.assertEqual(1, Master_Compile.parse_args(["Aug_collection_2026"]).workers)
+
     @patch("Master_Compile.run_scripts_parallel")
     @patch("Master_Compile.create_collection")
     def test_main_configures_collection_and_returns_failure_status(self, create_collection, run):

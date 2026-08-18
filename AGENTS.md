@@ -31,7 +31,7 @@ MenuTracker is a Python-based web scraping and data collection system that autom
 ```bash
 python Master_Compile.py Aug_collection_2026
 ```
-This executes every manifest entry concurrently and validates all declared output contracts. Append exact manifest script names to run a subset.
+This executes every manifest entry serially by default and validates all declared output contracts. Append exact manifest script names to run a subset; increase `--workers` only for a known-safe subset without competing Selenium sessions.
 
 **Single Chain Scraper**:
 ```bash

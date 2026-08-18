@@ -4,15 +4,18 @@ This guide covers the manifest-based collection command, its data and evidence
 files, and the manual repair workflow. Run all commands from the repository
 root unless a command says otherwise.
 
+The latest verified first-20 acceptance result and row-count audit are in
+[`FIRST_20_SMOKE_TEST.md`](FIRST_20_SMOKE_TEST.md).
+
 ## Process flow
 
 ```text
 Master_Compile.py
   -> creates the collection folder and exports MENUTRACKER_COLLECTION
   -> reads scraper_manifest.json
-  -> runs all or selected scraper scripts in parallel
+  -> runs all or selected scraper scripts (serially by default)
   -> each scraper writes into a dated chain subdirectory
-  -> validates every declared output as fresh and non-empty
+  -> validates every declared output as fresh, non-empty, and parseable
      -> pass: prints OK and resets that scraper's failure count
      -> fail: writes a local evidence bundle and classifies the failure
         -> external: evidence only
@@ -20,9 +23,9 @@ Master_Compile.py
   -> exits 0 when every scraper passes, otherwise exits 1
 ```
 
-`scraper_manifest.json` is the source of truth. At present it contains Toby
-Carvery, Harvester, and TopGolf. Running the command without script names runs
-those entries, not every historical scraper in the repository.
+`scraper_manifest.json` is the source of truth. Running the command without
+script names runs every declared entry, not every historical scraper in the
+repository.
 
 ## 1. Prepare the environment
 
@@ -75,6 +78,8 @@ Every runnable scraper needs one entry in `scraper_manifest.json`:
 - Each `outputs` value is a glob relative to the collection folder.
 - Every declared glob must match at least one regular file that is non-empty
   and modified after that scraper process started.
+- CSV outputs need a header and a nonblank data row, JSON outputs must parse
+  and be nonempty, and PDF outputs must begin with a PDF signature.
 - A scraper that exits successfully but misses one output contract still
   fails. Old output files never make a new run pass.
 
@@ -84,11 +89,16 @@ or experimental scripts from running accidentally.
 
 ## 3. Run a collection
 
-Run every manifest entry with up to five concurrent processes:
+Run every manifest entry serially. This is the safe default for a mixed wave
+containing Selenium scrapers:
 
 ```bash
 python Master_Compile.py Aug_collection_2026
 ```
+
+Increase `--workers` only for a known-safe subset. In particular, Costa must
+run without another active browser scraper; concurrent baseline runs killed
+its browser session while the same full scrape passed with one worker.
 
 Run a selected subset by giving exact manifest script names:
 
@@ -97,7 +107,7 @@ python Master_Compile.py Aug_collection_2026 \
   22_TobyCarvery.py 73_TopGolf.py
 ```
 
-Use one worker while debugging to keep logs and browser activity simple:
+Select one scraper while debugging to keep logs and browser activity simple:
 
 ```bash
 python Master_Compile.py Aug_collection_2026 53_Harvester.py --workers 1
@@ -191,7 +201,7 @@ evidence/
 | File | Definition |
 | --- | --- |
 | `result.json` | Script, pass/fail state, return code, elapsed seconds, UTC start time, run ID, and failure class. Large process logs are excluded. |
-| `output_validation.json` | One record per manifest glob, including every matched path, byte size, modification time, freshness, and non-empty checks. |
+| `output_validation.json` | One record per manifest glob, including every matched path, byte size, modification time, freshness, non-empty state, semantic result, and reason. |
 | `stdout.txt` | Complete captured standard output from the scraper subprocess. |
 | `stderr.txt` | Complete captured standard error and traceback from the scraper subprocess. |
 | `evidence_log.json` | Latest failure class, consecutive count, recent run IDs, and update time for each scraper. A successful run resets its count. |
@@ -208,7 +218,8 @@ Work in this order:
 2. Open `result.json`. A non-zero `returncode` means the scraper process
    failed; return code zero with `ok: false` points to output validation.
 3. Open `output_validation.json`. For each failed glob, check whether files
-   are absent, empty, or marked `fresh: false`.
+   are absent, empty, marked `fresh: false`, or have `semantic_ok: false`, then
+   read the accompanying `reason`.
 4. Read the last useful lines of `stderr.txt`, then consult `stdout.txt` for
    the scraper's progress immediately before the failure.
 5. Reproduce only that scraper with one worker and a new collection folder:
@@ -233,7 +244,7 @@ Common symptoms:
 | Symptom | Check |
 | --- | --- |
 | `Scripts are not in the manifest` | Use the exact `script` value from `scraper_manifest.json`, or add a reviewed contract for the scraper. |
-| Return code `0` but status `FAIL` | Inspect failed globs; the scraper likely wrote a different filename/location, an empty file, or no fresh file. |
+| Return code `0` but status `FAIL` | Inspect failed globs; the scraper likely wrote a different filename/location, no fresh file, or an empty/malformed CSV, JSON, or PDF. |
 | Browser/driver failure | Confirm Chrome or Chromium is installed, then inspect `stderr.txt`; these are normally external failures. |
 | No CSV inside `evidence/` | Expected. Result data is under the collection folder; evidence contains only failure diagnostics. |
 | No evidence directory for an `OK` scraper | Expected. Successful runs update only `evidence_log.json`. |

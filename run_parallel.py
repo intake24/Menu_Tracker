@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+import csv
 import json
 import os
 import re
@@ -41,8 +42,33 @@ def load_manifest(path=DEFAULT_MANIFEST):
     return manifest
 
 
+def _validate_content(path):
+    """Return whether an output file contains parseable data."""
+    try:
+        if path.suffix.lower() == ".csv":
+            with path.open(newline="", encoding="utf-8-sig") as handle:
+                rows = csv.reader(handle, strict=True)
+                header = next(rows, [])
+                if not any(cell.strip() for cell in header):
+                    return False, "CSV header is empty"
+                if not any(any(cell.strip() for cell in row) for row in rows):
+                    return False, "CSV has no data rows"
+            return True, "CSV has a header and data rows"
+        if path.suffix.lower() == ".json":
+            with path.open(encoding="utf-8") as handle:
+                data = json.load(handle)
+            return (True, "JSON is nonempty") if data else (False, "JSON is empty")
+        if path.suffix.lower() == ".pdf":
+            with path.open("rb") as handle:
+                valid = handle.read(5) == b"%PDF-"
+            return (True, "PDF signature is valid") if valid else (False, "PDF signature is invalid")
+    except (OSError, UnicodeError, csv.Error, json.JSONDecodeError) as error:
+        return False, f"Could not parse {path.suffix.lower() or 'file'}: {error}"
+    return True, "Nonempty file"
+
+
 def validate_outputs(collection, output_globs, started_at):
-    """Validate that each glob has a fresh, non-empty file."""
+    """Validate that each glob has a fresh, non-empty, parseable file."""
     collection = Path(collection)
     contracts = []
     for pattern in output_globs:
@@ -51,6 +77,7 @@ def validate_outputs(collection, output_globs, started_at):
             if not path.is_file():
                 continue
             stat = path.stat()
+            semantic_ok, reason = _validate_content(path) if stat.st_size else (False, "File is empty")
             files.append(
                 {
                     "path": str(path.relative_to(collection)),
@@ -58,12 +85,16 @@ def validate_outputs(collection, output_globs, started_at):
                     "modified_at": stat.st_mtime,
                     "fresh": stat.st_mtime >= started_at,
                     "non_empty": stat.st_size > 0,
+                    "semantic_ok": semantic_ok,
+                    "reason": reason,
                 }
             )
         contracts.append(
             {
                 "glob": pattern,
-                "ok": any(file["fresh"] and file["non_empty"] for file in files),
+                "ok": any(
+                    file["fresh"] and file["non_empty"] and file["semantic_ok"] for file in files
+                ),
                 "files": files,
             }
         )

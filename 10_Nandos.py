@@ -34,14 +34,19 @@ def crawl_nandos_nutrition():
         # sleep(5)  # Give page time to fully load
         
         # Find all product buttons
-        items = driver.find_elements(By.XPATH, '//div/button[contains(@title, "Open product description for")]')
-        print(f"Found {len(items)} menu items")
+        item_xpath = '//div/button[contains(@title, "Open product description for")]'
+        item_count = len(driver.find_elements(By.XPATH, item_xpath))
+        print(f"Found {item_count} menu items")
         
         results = []
         
-        for i, item in enumerate(items):
+        for i in range(item_count):
             try:
-                print(f"Processing item {i+1}/{len(items)}")
+                items = driver.find_elements(By.XPATH, item_xpath)
+                if i >= len(items):
+                    break
+                item = items[i]
+                print(f"Processing item {i+1}/{item_count}")
                 
                 try:
                     category = clean_text(item.find_element(By.XPATH, './parent::div/preceding-sibling::h2/em').text)
