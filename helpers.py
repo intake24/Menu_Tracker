@@ -404,13 +404,20 @@ def combo_PDFDownload(rest_name, url, keyword='pdf', prex=None, verify=True, tim
     soup = BeautifulSoup(html.text, 'html.parser')
     # Support both anchor hrefs and button data-url attributes containing the keyword.
     elements = soup.select(f"a[href*='{keyword}'], button[data-url*='{keyword}']")
-    if not elements:
+    urls = [el.get('href') or el.get('data-url') for el in elements]
+    if not urls:
+        # Some PDF viewers keep their URL only in an inline script.
+        urls = [
+            candidate
+            for candidate in re.findall(r"https?://[^\s\"'<>]+?\.pdf(?:\?[^\s\"'<>]*)?", html.text, flags=re.IGNORECASE)
+            if re.match(r"https?://[^?#]+\.pdf(?:[?#]|$)", candidate, flags=re.IGNORECASE)
+        ]
+    if not urls:
         logger.info(f'No PDF candidate elements found for {rest_name} at {url}')
         return
 
     seen = set()
-    for el in elements:
-        href = el.get('href') or el.get('data-url')
+    for href in urls:
         if not href:
             continue
         url_link = href.strip()
