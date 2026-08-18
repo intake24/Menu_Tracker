@@ -4,7 +4,7 @@ MenuTracker is a Python-based web scraping and data collection system that autom
 
 ## Architecture & Data Flow
 
-**Collection Wave System**: The project is organized around quarterly data collection waves. Each wave creates a timestamped folder (e.g., `Feb_collection_2026/`) containing all scraped data. The `define_collection_wave.py` module sets the global `folder` variable that all scrapers write to.
+**Collection Wave System**: The project is organized around quarterly data collection waves. `Master_Compile.py` creates the requested folder through `define_collection_wave.create_collection()`, exports it to scraper subprocesses, and runs the entries declared in `scraper_manifest.json`. `run_parallel.py` validates fresh outputs and records local evidence for failures. See `docs/COLLECTION_WORKFLOW.md`.
 
 **Three Scraping Approaches**:
 1. **Scrapy Spiders** (`Scrapy_spiders/` directory): Full-featured web crawlers for complex sites with multiple pages or menu sections. Each spider is a class inheriting from `scrapy.Spider` with XPath selectors for HTML parsing.
@@ -29,9 +29,9 @@ MenuTracker is a Python-based web scraping and data collection system that autom
 
 **Full Collection Wave**:
 ```bash
-python Master_Compile.py
+python Master_Compile.py Aug_collection_2026
 ```
-This executes all configured scrapers in sequence using `RunSpider()` and `RunScript()` helper functions.
+This executes every manifest entry concurrently and validates all declared output contracts. Append exact manifest script names to run a subset.
 
 **Single Chain Scraper**:
 ```bash
@@ -42,10 +42,7 @@ python 1_McDonalds.py
 scrapy crawl 10_Nandos -a output_folder=<path>
 ```
 
-**Define Collection Wave Before Running**: Edit `define_collection_wave.py` to set the collection folder name. Running the script creates the folder:
-```python
-create_collection("Feb_collection_2026")  # Creates Feb_collection_2026/ folder
-```
+**Define Collection Wave When Running**: Pass the collection folder name to `Master_Compile.py`; do not edit or run `define_collection_wave.py` first.
 
 ## Key Conventions
 
@@ -100,7 +97,7 @@ create_collection("Feb_collection_2026")  # Creates Feb_collection_2026/ folder
 
 - **Colab Compatibility**: Code detects Colab environment via `/content/drive/MyDrive`. Paths and Selenium setup adapt automatically. The jupyter notebook `menutracker.ipynb` provides Colab-specific workflow.
 - **Rate Limiting**: Master_Compile.py and individual scrapers include delays to reduce load on target websites. Respect robots.txt and consider site load.
-- **Data Standardization**: After collection, `DataMerge_MenuTracker.R` (R script) standardizes and merges all CSVs into a single dataset. This is separate from Python collection phase.
+- **Data Standardization**: The Python workflow ends at validated chain-level outputs. Merging and standardization are a separate downstream phase.
 - **Git Commits**: Fixes use format `fix(<chain>): <details>`, features use `feat(<chain>): <details>` for clear change tracking.
 - **Versioning**: If a chain scraper becomes outdated but you want to preserve it, rename with `_obsolete` suffix rather than deleting.
 

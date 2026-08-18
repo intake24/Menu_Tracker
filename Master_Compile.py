@@ -1,339 +1,62 @@
-####################################################################
-# Run this file to download/scrape data from all food outlets w NI #
-#####################################################################
-
-import os
-
-from define_collection_wave import folder
-from helpers import combo_PDFDownload, combo_PDFDownload_class_name, RunSpider, RunScript, java_PDF, greene_king_download, combo_imgDownload, vue_PDF, PDFDownloader, create_folder
-
-os.system('python define_collection_wave.py')
-
-# 1. McDonald's
-RunScript('1_McDonalds')
-
-# 2. Wetherspoons
-RunScript('2_Wetherspoons')
-
-# 3. Costa Coffee
-RunScript('3_CostaCoffee')
-
-# 4. Greggs
-RunScript('4_Greggs')
-
-# 5. KFC - historically present their nutritional info in PDF format but recently made it available on their website
-RunSpider('5_KFC', folder)
-
-# 6. Domino - PDF download
-java_PDF('6_Dominos', url='https://corporate.dominos.co.uk/allergens-nutritional')
-# java_PDF('6_Dominos', url='https://dominos.a.bigcontent.io/v1/static/allergen_leaflet')
-# java_PDF('6_Dominos', url='https://dominos.a.bigcontent.io/v1/static/ingredients-and-allergens')
-# java_PDF('6_Dominos', url='https://dominos.a.bigcontent.io/v1/static/nutrition_pizzas')
-# java_PDF('6_Dominos', url='https://dominos.a.bigcontent.io/v1/static/nutrition_sides-and-desserts')
-
-# 7. Starbucks - previously in PDF format
-combo_PDFDownload('7_Starbucks', url='https://www.starbucks.co.uk/nutrition')
-# RunSpider('7_Starbucks', folder)
-# RunScript('7_starbucks')
-
-# 8. PizzaHut - PDF download
-combo_PDFDownload(url='https://www.pizzahut.co.uk/restaurants/food/nutritional-information/', prex=
-'https://www.pizzahut.co.uk', rest_name='8_Pizzahut')
-
-# 9. Subway - both formats available, directly scrape from the website
-RunScript('9_Subway_nutrition')
-RunScript('9_Subway_allergen')
-
-# 10. Nandos
-RunSpider('10_Nandos', folder)
-
-# 11. Pizza Express -> PDF download
-combo_PDFDownload(rest_name='11_PizzaExpress', keyword='ashx',
-                  url='https://www.pizzaexpress.com/allergens-and-nutritionals',
-                  prex='https://www.pizzaexpress.com')
-
-# 12. Burger King -> Spider
-#RunSpider('12_BurgerKing', folder)
-RunScript('12_BurgerKing')
-
-# 13. Pret -> Spider
-RunSpider('13_Pret', folder)
-
-# 14. Caffe Nero -> requests API
-RunScript('14_CaffeNero')
-
-# 15. Wagamama -> Spider
-RunSpider('15_Wagamama', folder)
-
-# 16. Beefeater -> PDF
-combo_PDFDownload(url='https://www.beefeater.co.uk/en-gb/allergy-nutrition',
-                  rest_name='16_Beefeater', prex='https://www.beefeater.co.uk')
-
-# 17. Brewers Fayre -> PDF
-combo_PDFDownload(url='https://www.brewersfayre.co.uk/en-gb/allergy-nutrition',
-                  rest_name='17_Brewersfayre', prex='https://www.brewersfayre.co.uk')
-
-# 18. Sizzling Pubs
-RunSpider('18_Sizzling', folder)
-
-# 19. Ember Inns
-RunSpider('19_EmberInns', folder)
-
-# 20. Chef & Brewer Pub Co.
-# greene_king_download(rest_name='20_Chef', id=6145, url='https://www.chefandbrewer.com/', folder=folder)
-RunSpider('20_ChefBrewer', folder)
-# Download the PDF for kcal data
-RunScript('20_ChefBrewer')
-
-# 21. Table Table
-combo_PDFDownload(url='https://www.tabletable.co.uk/en-gb/allergy-nutrition', rest_name='21_TableTable',
-                  prex='https://www.tabletable.co.uk')
-
-# 22. Toby Cavery
-RunSpider('22_Toby', folder)
-
-# 23. Revolution
-RunSpider('23_Revolution', folder)
-
-# 24. Zizzi
-# combo_PDFDownload('24_Zizzi', url='https://www.zizzi.co.uk/menus')
-# started providing calorie only on web pages
-RunSpider('24_Zizzi', folder)
-
-# 25. Ask Italian
-# combo_PDFDownload(rest_name='25_Ask', url='https://www.askitalian.co.uk/allergens/')
-RunSpider('25_Ask', folder)
-
-# 26. Papa Johns - Nutrition calculators available only for US and Canada locations
-combo_PDFDownload('26_PapaJohns', url='https://www.papajohns.co.uk/', prex='https://www.papajohns.co.uk')
-
-# 27. Yates
-RunSpider('27_Yates', folder)
-
-# 28. Yo!Sushi -> lack carb and fibre information on websites -> PDF
-combo_PDFDownload('28_Yosushi', url='https://yosushi.com/legal/allergen-information',
-                  prex='https://yosushi.com')
-
-# 29. All Bar One
-RunSpider('29_AllBarOne', folder)
-
-# 30. GBK
-RunScript('30_GBK')
-
-# 31. Flaming Grill
-RunScript('31_FlamingGrill')
-
-# 32. Loch Fyne seafood grill -> No nutrition available
-# combo_PDFDownload('32_LochFyne', prex='https://www.lochfyneseafoodandgrill.co.uk',
-#                   url='https://www.lochfyneseafoodandgrill.co.uk/allergens')
-# RunSpider('32_LochFyne', folder)
-combo_PDFDownload_class_name('32_LochFyne', url='https://www.lochfyneseafoodandgrill.co.uk/menu', keyword='menus-download')
-
-# 33. PAUL
-RunSpider('33_Paul', folder)
-
-# 34. Wimpy
-RunSpider('34_Wimpy', folder)
-
-# 35. Krispy Creme
-# RunSpider('35_KrispyKreme', folder) -> not available yet, PDF
-#combo_PDFDownload('35_KrispyKreme', url='https://www.krispykreme.co.uk/nutritionals')
-# RunScript('35_krispyKreme', folder)
-java_PDF('35_KrispyKreme', url='https://www.krispykreme.co.uk/nutritionals', prex='https://www.krispykreme.co.uk',link_=False, xpath_="9")
-
-
-# 36. Bills
-RunSpider('36_Bills', folder)
-
-# 37. Walkabout
-RunSpider('37_Walkabout', folder)
-
-# 38. Itsu
-RunSpider('38_Itsu', folder)
-
-# 39. Ben & Jerry
-RunScript('39_BenJerry')
-
-# 40. Asda -> PDF format, randomly selected Asda - menu has not been available for a few rounds (20/08/2024)
-combo_PDFDownload('40_Asda', url='https://storelocator.asda.com/east-of-england/stevenage/monkswood-way/cafe')
-
-# 41. Barburrito -> PDF
-# combo_PDFDownload(rest_name='41_Barburrito', url='https://www.barburrito.co.uk/menu')
-RunSpider('41_Barburrito', folder)
-
-
-# 42. Benugo
-RunSpider('42_Benugo', folder)
-
-# 43. Boost Juice
-RunSpider('43_Boostjuice', folder)
-
-# 44. Boswells
-combo_PDFDownload('44_Boswell', 'https://boswellsgroup.com/menu/')
-
-# 45. Brewhouse
-combo_PDFDownload('45_Brewhouse', 'https://www.brewhouseandkitchen.com/bk-allergies/')
-combo_PDFDownload('45_Brewhouse', 'https://www.brewhouseandkitchen.com/venue/bristol/')
-
-# 46. Cineworld
-combo_PDFDownload('46_Cineworld', url='https://www.cineworld.co.uk/static/en/uk/allergens-and-nutrition', prex='https://www.cineworld.co.uk', keyword='jcr')
-
-# 47. Coffee #1
-combo_PDFDownload('47_Coffee1', 'https://www.coffee1.co.uk/food-nutritional-information/')
-
-# 48. Common Rooms - leave as has not run for a few rounds, chain closed? (20/08/2024)
-#RunSpider('48_CommonRooms', folder)
-
-# 49. Cookhouse & Pub
-combo_PDFDownload('49_CookhousePub', url='https://www.cookhouseandpub.co.uk/en-gb/', 
-                  prex='https://www.cookhouseandpub.co.uk', verify=False)
-
-# 50.Crussh -> terrible website!
-RunSpider('50_Crussh',json_ = True, folder = folder)
-
-# 51. Farmhouse Inns -> PDF
-# greene_king_download(rest_name='51_FarmhouseInns', id='5690', url='https://www.farmhouseinns.co.uk', folder=folder)
-RunScript('51_FarmhouseInns')
-
-# 52. Five guys -> PDF
-combo_PDFDownload(rest_name='52_FiveGuys', url='https://www.fiveguys.co.uk/menu', keyword = 'nutrition')
-
-# 53. Harvester
-RunSpider('53_Harvester', folder)
-
-# 54. Hungry Horse -> a greene king company
-# greene_king_download('54_HungryHorse', id='6347', url='https://www.hungryhorse.co.uk', folder=folder)
-RunScript('54_HungryHorse')
-
-# 55. Joe & the Juice
-# RunSpider('55_JoeJuice', folder, json_=True)
-RunScript('55_JoeJuice')
-
-# 56. Leon
-RunSpider('56_Leon', folder)
-
-# 57. greene king
-# greene_king_download('57_GreeneKing', id='8183', url='https://www.greeneking-pubs.co.uk', folder=folder)
-RunScript('57_GreeneKing')
-
-# 58. Vue -> PDF
-vue_PDF('58_Vue', url='https://www.myvue.com/legal/nutritional-information', 
- xpath_="//a[contains(@href, 'media')]")
-
-# 59. Ocean Cinema
-java_PDF('59_Odeon', url='https://www.odeon.co.uk/experiences/food-drinks/food-and-drinks-facts-and-figures/',prex='https://www.odeon.co.uk',link_=False, xpath_="//p/a[contains(@title, 'Nutritional')]")
-
-
-# 60. Marston's Pubs
-# combo_PDFDownload('60_Marstons', url='https://www.dragonflypubbasingstoke.co.uk/menus/')
-RunSpider('60_Marstons', folder)
-
-# 61. Morrisons Cafe
-RunScript('61_MorrisonsCafe')
-
-# 62. Pho Cafe
-combo_PDFDownload('62_Pho', url='https://www.phocafe.co.uk/menus/', prex='https://www.phocafe.co.uk')
-
-# 63. Pieminister
-RunSpider('63_Pieminister', folder)
-
-# 64. Pure
-RunScript('64_Pure')
-
-# 65. Sainsbury Cafe
-# combo_PDFDownload('65_SainsburysCafe',
-#                   'https://www.sainsburys.co.uk/shop/gb/groceries/get-ideas/our-instore-services/--sainsburys-cafe',
-#                   prex='https://www.sainsburys.co.uk')
-combo_PDFDownload('65_SainsburysCafe',
-                  'https://help.sainsburys.co.uk/help/terms-and-conditions/sainsburyscafe',
-                  prex='https://www.sainsburys.co.uk')
-
-# 66. Soho Cafe
-RunSpider('66_SohoCafe', folder, json_=True)
-
-# 67. Stonehouse Pizza
-RunSpider('67_StonehousePizza', folder)
-
-# 68. Tank and Paddle
-RunSpider('68_TankPaddle', folder)
-
-# 69. Tesco Cafe
-RunSpider('69_TescoCafe', folder)
-
-# 70. The Cornish Bakery
-RunSpider('70_Cornish', folder)
-
-# 71. Thomas the Baker
-RunSpider('71_ThomasBaker', folder)
-
-# 72. Tim Hortons
-RunSpider('72_TimHortons', folder, json_=True)
-
-# 73. Top Golf -> PDF only
-# tg_path = create_folder('73_TopGolf', folder)
-# PDFDownloader(url='https://s3.topgolf.com/uploads/pdf/menus/topgolf-nutritional-information.pdf?v=20200131',
-#               filePath=tg_path + '/top-golf-nutritional-information.pdf')
-RunSpider('73_TopGolf', folder)
-# java_PDF(rest_name='73_TopGolf', url ='https://topgolf.com/uk/chigwell/menu/', link_=False, xpath_='//a[contains(@href, "topgolf.kitchencut.com")]')
-
-# 74. Town, Kitchen, and Pubs
-RunSpider('74_TownKitchenPubs', folder)
-
-# 75. Vintage Inns
-RunSpider('75_VintageInns', folder)
-
-# 76. Wasabi
-RunScript('76_Wasabi')
-# java_PDF('76_Wasabi', url = 'https://www.wasabi.uk.com/our-food/', link_=False, xpath_ = '//a[contains(@href, "nutrition")]')
-#Folder_path = create_folder('76_Wasabi', define_collection_wave.folder)
-#PDFDownloader(url='https://wasabiuk.wpengine.com/wp-content/uploads/2023/11/WAS_Nutritional_Guide_091123_V5.pdf',filePath= Folder_path +'/wasabi_nutrition.pdf')
-
-
-# 77. Waterfields - leave as has not run for a few rounds, chain closed? (20/08/2024)
-RunSpider('77_Waterfields', folder, json_=True)
-
-# 78. Birds Bakery
-# RunSpider('78_BirdsBakery', folder, json_=True)
-RunSpider('78_BirdsBakery', folder)
-
-# 79. Tortilla
-RunScript('79_Tortilla')
-
-# 80. Tossed
-# RunSpider('80_Tossed', folder)
-RunScript('80_tossed')
-
-# 81. Bella Italian
-RunScript('81_BellaItalian')
-
-# 82. Cafe Rouge
-RunSpider('82_CafeRouge', folder)
-
-# 83. Taco Bell
-RunSpider('83_TacoBell', folder)
-
-# 84. Coco di mama -> no NI anymore
-RunSpider('84_Coco',folder)
-
-# 85. The real greek
-RunSpider('85_RealGreek', folder)
-
-# 86. Honest Burger
-combo_PDFDownload('86_HonestBurger', url='https://www.honestburgers.co.uk/allergy-information/', keyword='nutritional',
-                  prex='https://www.honestburgers.co.uk/')
-
-# 87. AMT
-combo_PDFDownload('87_AMT', url='http://amtcoffee.co.uk/types/drinks/')
-
-# 88. Chicken Cottage
-# combo_imgDownload('88_ChickenCottage','https://chickencottage.com/our-food/',folder)
-combo_imgDownload('88_ChickenCottage','https://chickencottage.com/our-food/', folder)
-
-# 89. Browns
-RunSpider('89_Browns', folder)
-
-# 90. ONeills
-RunSpider('90_ONeills', folder)
-
-# 91. Nicholson's
-RunSpider('91_Nicholsons', folder)
+"""Run a validated MenuTracker collection wave from the scraper manifest."""
+
+import argparse
+from pathlib import Path
+
+from define_collection_wave import create_collection
+from run_parallel import DEFAULT_MANIFEST, run_scripts_parallel
+
+
+ROOT = Path(__file__).resolve().parent
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Run manifest-listed scrapers and validate their fresh outputs."
+    )
+    parser.add_argument(
+        "collection",
+        help="Collection folder name or absolute path, for example Aug_collection_2026",
+    )
+    parser.add_argument(
+        "scripts",
+        nargs="*",
+        metavar="SCRIPT",
+        help="Manifest script names to run; omit to run every manifest entry",
+    )
+    parser.add_argument("--workers", type=int, default=5, help="Concurrent scrapers (default: 5)")
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--evidence-dir", type=Path, default=ROOT / "evidence")
+    parser.add_argument(
+        "--github-issues",
+        action="store_true",
+        help="On the trusted Mac, report repeated likely-code failures to GitHub",
+    )
+    parser.add_argument("--github-repository", help="GitHub owner/repository for repair issues")
+    args = parser.parse_args(argv)
+    if args.workers < 1:
+        parser.error("--workers must be at least 1")
+    return args
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    create_collection(args.collection)
+    results = run_scripts_parallel(
+        args.scripts or None,
+        max_workers=args.workers,
+        cwd=ROOT,
+        manifest_path=args.manifest,
+        evidence_dir=args.evidence_dir,
+        enable_github_issues=args.github_issues,
+        github_repository=args.github_repository,
+    )
+    failed = [result for result in results.values() if not result["ok"]]
+    for result in failed:
+        if result.get("evidence_bundle"):
+            print(f"Evidence: {result['evidence_bundle']}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
