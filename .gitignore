@@ -95,3 +95,6 @@ CITATION.cff
 
 .venv/
 .drivers/
+
+# Local scraper diagnostics
+evidence/

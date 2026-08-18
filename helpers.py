@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import logging
 from ssl import OP_SINGLE_DH_USE
@@ -17,14 +18,12 @@ import undetected_chromedriver as uc
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from fake_useragent import UserAgent
 from selenium.webdriver.chrome.options import Options
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 
 
 import define_collection_wave as dcw
@@ -74,31 +73,42 @@ def prepare_cached_chromedriver(driver_path: str, chrome_version: int):
     return driver_path
 
 
+def get_chrome_binary_and_version():
+    """Return the installed Chrome/Chromium binary and its major version."""
+    candidates = (
+        [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ]
+        if platform.system() == "Darwin"
+        else ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+    )
+    for candidate in candidates:
+        binary = candidate if Path(candidate).is_file() else shutil.which(candidate)
+        if not binary:
+            continue
+        try:
+            output = subprocess.check_output(
+                [binary, "--version"], text=True, stderr=subprocess.STDOUT
+            )
+        except (OSError, subprocess.CalledProcessError):
+            continue
+        version = re.search(r"\b(\d+)(?:\.\d+)+", output)
+        if version:
+            return binary, int(version.group(1))
+    logger.warning("Could not detect a Chrome or Chromium installation")
+    return None, None
+
+
 def get_chrome_version():
-    """Detect the major version of Google Chrome installed on the system."""
-    system = platform.system()
-    try:
-        if system == "Darwin":  # macOS
-            cmd = r"/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --version"
-            output = subprocess.check_output(cmd, shell=True).decode()
-            version_match = re.search(r"Google Chrome (\d+)", output)
-            if version_match:
-                return int(version_match.group(1))
-        elif system == "Linux":
-            cmd = "google-chrome --version"
-            output = subprocess.check_output(cmd, shell=True).decode()
-            version_match = re.search(r"Google Chrome (\d+)", output)
-            if version_match:
-                return int(version_match.group(1))
-    except Exception as e:
-        logger.warning(f"Could not detect Chrome version: {e}")
-    return None
+    """Return the installed Chrome/Chromium major version."""
+    return get_chrome_binary_and_version()[1]
 
 def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] | None = None):
     """Setup Chrome driver with anti-detection options.
 
     Tries undetected_chromedriver first (better bot-detection evasion).
-    Falls back to plain webdriver.Chrome via webdriver-manager when the
+    Falls back to plain webdriver.Chrome via Selenium Manager when the
     uc driver download or launch fails (e.g. flaky network).
 
     The fallback always includes ``--disable-http2`` to avoid
@@ -113,7 +123,7 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
     ua = UserAgent()
     random_user_agent = ua.random
     extra = extra_chrome_args or []
-    chrome_version = get_chrome_version()
+    chrome_binary, chrome_version = get_chrome_binary_and_version()
     cached_driver = (
         find_cached_chromedriver(chrome_version) if chrome_version else None
     )
@@ -128,6 +138,8 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
     for attempt in range(1, max_attempts + 1):
         try:
             options = uc.ChromeOptions()
+            if chrome_binary:
+                options.binary_location = chrome_binary
             options.headless = True
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
@@ -175,10 +187,12 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
             if attempt < max_attempts:
                 sleep(1)
 
-    # --- Fallback: plain webdriver.Chrome via webdriver-manager ---
+    # --- Fallback: plain webdriver.Chrome via Selenium Manager ---
     logger.warning("Primary setup_driver() failed, falling back to webdriver.Chrome()")
     fallback_args = ['--disable-http2'] + extra
     opts = Options()
+    if chrome_binary:
+        opts.binary_location = chrome_binary
     opts.add_argument('--headless=new')
     opts.add_argument('--no-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
@@ -195,10 +209,7 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
         }
         opts.add_experimental_option("prefs", prefs)
 
-    service = Service(
-        cached_driver or ChromeDriverManager().install()
-    )
-    driver = webdriver.Chrome(service=service, options=opts)
+    driver = webdriver.Chrome(options=opts)
     return driver
 
 def clean_text(text):
@@ -821,24 +832,16 @@ def safe_get(driver, url: str, wait_locator=None, wait_timeout: int = 6) -> 'Web
                 print("Wait for locator timed out; proceeding anyway…")
                 pass
 
-    # Try to quit existing selenium driver and create a new one
     try:
-        driver.quit()
-    except Exception as e:
-        print("Cannot destroy existing web driver, proceeding anyway...")
-    try:
-        new_driver = setup_driver()
-        set_driver_timeouts(new_driver)
-        try_click_accept_cookies(new_driver)
-        _navigate(new_driver)
-        return new_driver
+        _navigate(driver)
+        return driver
     except WebDriverException as e:
         msg = str(e)
         if ("Read timed out" in msg) or ("HTTPConnectionPool" in msg) or ("ERR_CONNECTION" in msg):
             # Restart the driver and retry once
             try:
                 print("Transport timeout detected, restarting driver and retrying navigation…")
-                new_driver.quit()
+                driver.quit()
             except Exception:
                 print("Could not quit driver cleanly, proceeding anyway…")
                 pass

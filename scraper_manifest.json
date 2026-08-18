@@ -1,0 +1,25 @@
+{
+  "scrapers": [
+    {
+      "script": "22_TobyCarvery.py",
+      "outputs": [
+        "22_TobyCarvery_*/tobycarvery_nutrition.json",
+        "22_TobyCarvery_*/tobycarvery_nutrition.csv"
+      ]
+    },
+    {
+      "script": "53_Harvester.py",
+      "outputs": [
+        "53_Harvester_*/harvester_nutrition.json",
+        "53_Harvester_*/harvester_nutrition.csv"
+      ]
+    },
+    {
+      "script": "73_TopGolf.py",
+      "outputs": [
+        "73_TopGolf_*/topgolf_items.json",
+        "73_TopGolf_*/topgolf_items.csv"
+      ]
+    }
+  ]
+}
