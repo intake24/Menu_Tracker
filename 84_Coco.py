@@ -1,9 +1,11 @@
+import json
 import os
 from datetime import date
 from typing import List, Dict
 
 import pandas as pd
 import requests
+from bs4 import BeautifulSoup
 
 from define_collection_wave import folder
 from helpers import create_folder, headers
@@ -11,10 +13,7 @@ from helpers import create_folder, headers
 
 REST_NAME = "Coco Di Mama"
 BASE_URL = "https://www.cocodimama.co.uk"
-# Menu IDs taken from the original spider
-MENU_IDS = [9528, 9530, 9529]
-NAMES_URL = f"{BASE_URL}/wp-json/menus/get_menus_from_ids?ids={','.join(map(str, MENU_IDS))}"
-MENU_BY_NAME_URL = f"{BASE_URL}/wp-json/menus/get_menu_from_name?name={{name}}"
+MENU_URL = f"{BASE_URL}/menus"
 
 # Outputs
 path_out = create_folder('84_Coco', folder)
@@ -23,60 +22,49 @@ file_jsonl = os.path.join(path_out, 'coco_di_mama_items_JSONL.json')
 file_csv = os.path.join(path_out, 'coco_di_mama_items.csv')
 
 
-def fetch_json(url: str) -> Dict:
-    resp = requests.get(url, headers=headers, timeout=25)
+def fetch_menu_html() -> str:
+    resp = requests.get(MENU_URL, headers=headers, timeout=25)
     resp.raise_for_status()
-    return resp.json()
+    return resp.text
 
 
-def build_records(menu_name: str, payload: Dict) -> List[Dict]:
+def build_records_from_menu_json_ld(html: str) -> List[Dict]:
+    soup = BeautifulSoup(html, 'html.parser')
+    menu = None
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            payload = json.loads(script.string or '')
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get('@type') == 'Menu':
+            menu = payload
+            break
+
+    if not menu:
+        raise RuntimeError('No schema.org Menu JSON-LD found on the menu page')
+
     records: List[Dict] = []
-    data = (payload or {}).get('data') or {}
-    sections = data.get('menu_sections') or []
+    menu_name = menu.get('name') or 'Coco Di Mama Menu'
+    sections = menu.get('hasMenuSection') or []
 
     for section in sections:
-        section_title = section.get('section_title') or ''
-        items = section.get('items')
-
-        if items is None:
-            # Fall back to subsections
-            subsections = section.get('subsections') or []
-            for subsection in subsections:
-                sub_title = subsection.get('title') or section_title
-                sub_items = subsection.get('items') or []
-                for item in sub_items:
-                    price_obj = item.get('prices') or {}
-                    # Preserve original spider behavior for subsections
-                    price = price_obj.get('london_price_point') or price_obj.get('mid_price_point') or price_obj.get('price') or ''
-                    records.append({
-                        'collection_date': date.today().strftime('%b-%d-%Y'),
-                        'rest_name': REST_NAME,
-                        'menu_name': menu_name,
-                        'menu_section': sub_title,
-                        'item_name': item.get('name'),
-                        'item_id': item.get('id'),
-                        'kcal': item.get('calorie_information'),
-                        'item_description': item.get('description'),
-                        'price': price,
-                        'dietary': item.get('dietary'),
-                    })
-        else:
-            for item in items or []:
-                price_obj = item.get('prices') or {}
-                # Preserve original spider behavior for top-level items
-                price = price_obj.get('mid_price_point') or price_obj.get('london_price_point') or price_obj.get('price') or ''
-                records.append({
-                    'collection_date': date.today().strftime('%b-%d-%Y'),
-                    'rest_name': REST_NAME,
-                    'menu_name': menu_name,
-                    'menu_section': section_title,
-                    'item_name': item.get('name'),
-                    'item_id': item.get('id'),
-                    'kcal': item.get('calorie_information'),
-                    'item_description': item.get('description'),
-                    'price': price,
-                    'dietary': item.get('dietary'),
-                })
+        section_title = section.get('name') or ''
+        for item in section.get('hasMenuItem') or []:
+            dietary = item.get('suitableForDiet') or []
+            if not isinstance(dietary, list):
+                dietary = [dietary]
+            records.append({
+                'collection_date': date.today().strftime('%b-%d-%Y'),
+                'rest_name': REST_NAME,
+                'menu_name': menu_name,
+                'menu_section': section_title,
+                'item_name': item.get('name'),
+                'item_id': None,
+                'kcal': (item.get('nutrition') or {}).get('calories'),
+                'item_description': item.get('description'),
+                'price': (item.get('offers') or {}).get('price', ''),
+                'dietary': ', '.join(value.rsplit('/', 1)[-1] for value in dietary),
+            })
     return records
 
 
@@ -89,28 +77,10 @@ def save_outputs(records: List[Dict]):
 
 
 def main():
-    print(f"[start] Fetching menu names from: {NAMES_URL}")
-    names_payload = fetch_json(NAMES_URL)
-    menu_names = (names_payload or {}).get('data') or []
-    print(f"[info] Found {len(menu_names)} menu name(s)")
-
-    all_records: List[Dict] = []
-    for idx, menu in enumerate(menu_names, start=1):
-        name = (menu or {}).get('name')
-        if not name:
-            continue
-        url = MENU_BY_NAME_URL.format(name=requests.utils.quote(name))
-        print(f"[menu {idx}/{len(menu_names)}] Fetching: {url}")
-        try:
-            payload = fetch_json(url)
-        except Exception as e:
-            print(f"[warn] Failed to fetch menu '{name}': {e}")
-            continue
-        records = build_records(name, payload)
-        print(f"[menu {idx}/{len(menu_names)}] Parsed {len(records)} items for '{name}'")
-        all_records.extend(records)
-
-    save_outputs(all_records)
+    print(f"[start] Fetching menu from: {MENU_URL}")
+    records = build_records_from_menu_json_ld(fetch_menu_html())
+    print(f"[info] Parsed {len(records)} menu item(s)")
+    save_outputs(records)
 
 
 if __name__ == '__main__':
