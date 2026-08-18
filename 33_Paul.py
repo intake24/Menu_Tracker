@@ -34,36 +34,24 @@ def fetch_html(url: str) -> str:
 
 def get_category_links(home_html: str) -> List[str]:
     soup = BeautifulSoup(home_html, "html.parser")
-    links = []
-    for a in soup.select("nav li.category-item a[href]"):
-        href = a.get("href").strip()
-        if not href:
-            continue
-        abs_url = urljoin(BASE_URL, href)
-        links.append(abs_url)
-    # de-duplicate while preserving order
-    seen: Set[str] = set()
-    unique_links = []
-    for u in links:
-        if u not in seen:
-            seen.add(u)
-            unique_links.append(u)
-    return unique_links
+    links = [
+        urljoin(BASE_URL, a["href"].strip())
+        for a in soup.select('nav a[href*="/order-online/"]')
+        if a["href"].strip()
+    ]
+    return list(dict.fromkeys(links))
 
 
 def get_product_links_and_next(page_html: str, page_url: str) -> (List[str], Optional[str]):
     soup = BeautifulSoup(page_html, "html.parser")
     product_urls: List[str] = []
 
-    for li in soup.select("li.item.product.product-item"):
-        a = li.find("a", href=True)
-        if not a:
-            continue
+    for a in soup.select(".product-item a[href]"):
         product_urls.append(urljoin(page_url, a["href"]))
 
     next_link = None
-    next_a = soup.select_one("a.action.next[href]")
-    if next_a and next_a.get("href"):
+    next_a = soup.select_one("a.pages-item-next[href], a.action.next[href]")
+    if next_a and next_a.get("href") and next_a.get("aria-disabled") != "true":
         next_link = urljoin(page_url, next_a["href"]) 
 
     # unique
@@ -81,7 +69,26 @@ def parse_nutrition_blocks(soup: BeautifulSoup) -> (Dict[str, str], Dict[str, st
     nutrient_dict_100: Dict[str, str] = {}
     servingsize_nums: Optional[List[str]] = None
 
-    # Serving-size block (title + 2 following ULs)
+    for details in soup.select("details"):
+        summary = details.select_one("summary")
+        if not summary or "nutritional information" not in summary.get_text(" ", strip=True).lower():
+            continue
+        rows = details.select("table tr")
+        if len(rows) < 2:
+            continue
+        headers = [cell.get_text(" ", strip=True) for cell in rows[0].select("th, td")]
+        if len(headers) < 3:
+            continue
+        servingsize_nums = re.findall(r"[0-9]+(?:[.,][0-9]+)?", headers[1])
+        for row in rows[1:]:
+            cells = [cell.get_text(" ", strip=True) for cell in row.select("th, td")]
+            if len(cells) < 3 or not cells[0]:
+                continue
+            nutrient_dict_serving[cells[0]] = cells[1]
+            nutrient_dict_100[f"{cells[0]}_100g"] = cells[2]
+        return nutrient_dict_serving, nutrient_dict_100, servingsize_nums
+
+    # Legacy serving-size block (title + 2 following ULs)
     title = soup.select_one("div.nutritional-title.hide-desk")
     if title:
         title_text = title.get_text(strip=True)
@@ -108,6 +115,14 @@ def parse_nutrition_blocks(soup: BeautifulSoup) -> (Dict[str, str], Dict[str, st
 
 
 def parse_allergens(soup: BeautifulSoup) -> Dict[str, str]:
+    for details in soup.select("details"):
+        summary = details.select_one("summary")
+        if not summary or "allergens" not in summary.get_text(" ", strip=True).lower():
+            continue
+        allergens = [li.get_text(" ", strip=True) for li in details.select(".allergens-new li")]
+        if allergens:
+            return {"present": allergens}
+
     allergen_map: Dict[str, str] = {}
     container = soup.find("div", id="allergens.present")
     if not container:
@@ -129,7 +144,7 @@ def parse_product(url: str) -> Optional[Dict]:
 
     soup = BeautifulSoup(html, "html.parser")
 
-    name = soup.select_one(".page-title-wrapper h1")
+    name = soup.select_one(".product-title, .page-title-wrapper h1, h1")
     desc = soup.select_one('[itemprop="description"]')
     price = soup.select_one("span.price")
 
@@ -163,7 +178,9 @@ def crawl_paul() -> List[Dict]:
     for cat in cat_links:
         print(f"Category: {cat}")
         cur = cat
-        while cur:
+        seen_pages: Set[str] = set()
+        while cur and cur not in seen_pages:
+            seen_pages.add(cur)
             try:
                 html = fetch_html(cur)
             except Exception as e:
