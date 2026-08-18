@@ -133,6 +133,13 @@ def setup_driver(download_dir: str | None = None, extra_chrome_args: list[str] |
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument(f"--user-agent={random_user_agent}")
             options.add_argument("--disable-blink-features=AutomationControlled")
+            if download_dir:
+                options.add_experimental_option("prefs", {
+                    "download.default_directory": download_dir,
+                    "download.prompt_for_download": False,
+                    "download.directory_upgrade": True,
+                    "plugins.always_open_pdf_externally": True,
+                })
             for arg in extra:
                 options.add_argument(arg)
 
@@ -458,9 +465,10 @@ def combo_PDFDownload_class_name(rest_name, url, keyword='pdf', prex=None, verif
     print('finished downloading pdfs for ' + rest_name)
 
 # Download PDFs with Selenium - unified function replacing vue_PDF and java_PDF
-def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text=False, 
+def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text=False,
                  partial_link_value='Download', navigate_to_links=False, wait_time=5,
-                 handle_runtime_pdf: bool = True, download_filename: str | None = None):
+                 handle_runtime_pdf: bool = True, download_filename: str | None = None,
+                 download_via_browser: bool = False):
     """
     Download PDFs using Selenium with flexible link discovery options.
     
@@ -473,10 +481,11 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
         partial_link_value: Text to search for when use_partial_link_text=True
         navigate_to_links: If True, navigate to each link to get final URL
         wait_time: Seconds to wait between operations
+        download_via_browser: Download direct PDF links through Chrome instead of requests
     """
     # Create folder and configure driver to download into it when handling runtime PDFs
     path = create_folder(rest_name, getattr(dcw, 'folder', None))
-    driver = setup_driver(download_dir=path if handle_runtime_pdf else None)
+    driver = setup_driver(download_dir=path if (handle_runtime_pdf or download_via_browser) else None)
     
     try:
         print(f'1. Source URL: {url}')
@@ -545,8 +554,20 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
                 filename = filename.replace(':', '').replace('?', '')
 
                 file_path = os.path.join(path, filename)
-                print(f'6.{i+1} Downloading via HTTP: {link} -> {file_path}')
-                PDFDownloader(url=link, filePath=file_path)
+                if download_via_browser:
+                    before = {f for f in os.listdir(path) if f.lower().endswith('.pdf')}
+                    print(f'6.{i+1} Downloading in browser: {link}')
+                    driver.get(link)
+                    downloaded = wait_for_new_pdf(path, before_set=before, timeout=90)
+                    if downloaded and downloaded != file_path:
+                        os.replace(downloaded, file_path)
+                    if downloaded:
+                        print(f'6.{i+1} Saved browser download to: {file_path}')
+                    else:
+                        print(f'6.{i+1} Timed out waiting for browser PDF download')
+                else:
+                    print(f'6.{i+1} Downloading via HTTP: {link} -> {file_path}')
+                    PDFDownloader(url=link, filePath=file_path)
         elif handle_runtime_pdf:
             # Click-based runtime PDF generation, rely on Chrome download behavior
             print('5. No direct links found; attempting click-to-download for runtime-generated PDF')
