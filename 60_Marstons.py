@@ -87,8 +87,19 @@ def process_menu(driver, menu_button) -> List[Dict]:
         print(f"  - No categories found for menu '{menu_name}'. Skipping.")
         return []
 
-    # Get all item containers for the currently active menu
-    item_elements = driver.find_elements(By.XPATH, "//div[contains(@class, 'Item_item__')]")
+    # Items render progressively after the category headers appear; wait for
+    # the count to stop growing instead of grabbing the first (partial) snapshot.
+    item_selector = "//div[contains(@class, 'Item_item__')]"
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.XPATH, item_selector))
+    )
+    previous_count = -1
+    for _ in range(10):
+        item_elements = driver.find_elements(By.XPATH, item_selector)
+        if len(item_elements) == previous_count:
+            break
+        previous_count = len(item_elements)
+        time.sleep(0.5)
     print(f"  Found {len(item_elements)} potential items in '{menu_name}'.")
 
     for item_el in item_elements:

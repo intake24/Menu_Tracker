@@ -9,7 +9,7 @@ import pandas as pd
 from lxml import html
 
 from define_collection_wave import folder
-from helpers import create_folder, headers
+from helpers import create_folder, headers, combo_PDFDownload
 
 
 BASE_URL = 'https://thecornishbakery.com/pages/allergens'
@@ -97,3 +97,8 @@ if __name__ == '__main__':
             print(f'Saved: {file_csv}')
     except Exception as e:
         print(f'Failed to scrape {REST_NAME}: {e}')
+
+    # The site's per-item allergen data doesn't include a full nutrition
+    # breakdown; the current allergen matrix PDF on the products page fills
+    # that gap.
+    combo_PDFDownload('70_Cornish', url='https://thecornishbakery.com/products/', keyword='Allergen')

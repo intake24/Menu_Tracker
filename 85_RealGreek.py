@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
 from define_collection_wave import folder
-from helpers import create_folder, setup_driver, headers
+from helpers import create_folder, setup_driver, headers, combo_PDFDownload
 
 REST_NAME = 'The Real Greek'
 URL = 'https://www.therealgreek.com/menu/'
@@ -146,25 +146,28 @@ def main():
     try:
         doc = fetch_tree(URL)
         recs = parse_static(doc)
-        if recs:
-            save_outputs(recs)
-            return
     except Exception:
         recs = []
 
-    # Selenium fallback
-    driver = setup_driver()
-    try:
-        driver.get(URL)
+    if not recs:
+        # Selenium fallback
+        driver = setup_driver()
         try:
-            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//h2[@class='h1 text-left scrl-mg-body']")))
-        except TimeoutException:
-            pass
-        tree = html.fromstring(driver.page_source)
-        recs = parse_static(tree)
-    finally:
-        driver.quit()
+            driver.get(URL)
+            try:
+                WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//h2[@class='h1 text-left scrl-mg-body']")))
+            except TimeoutException:
+                pass
+            tree = html.fromstring(driver.page_source)
+            recs = parse_static(tree)
+        finally:
+            driver.quit()
+
     save_outputs(recs)
+
+    # The scraped menu doesn't carry per-item allergen data; the current
+    # allergen PDFs linked from the same menu page fill that gap.
+    combo_PDFDownload('85_RealGreek', url=URL, keyword='Allergen')
 
 
 if __name__ == '__main__':

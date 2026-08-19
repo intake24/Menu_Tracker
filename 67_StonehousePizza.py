@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
+from urllib.parse import urljoin
 
 from define_collection_wave import folder
 from helpers import create_folder, setup_driver, clean_text, try_click_accept_cookies, get_visible_text, set_driver_timeouts, safe_get
@@ -18,7 +19,6 @@ file_csv = path_out + '/stonehousepizza_nutrition.csv'
 REST_NAME = "Stonehouse Pizza"
 
 START_URL = 'https://www.stonehouserestaurants.co.uk/food#/'
-menu_urls_xpath_expr = "//*[@class='button parbase section']"
 
 logger = logging.getLogger(__name__)
 
@@ -325,14 +325,28 @@ def crawl_nutrition():
     try:
         menu_driver.get(START_URL)
         logger.info('Page URL: %s', menu_driver.current_url)
-        logger.info('Waiting for menu items to load…')
+        logger.info('Waiting for menu listing to load…')
         WebDriverWait(menu_driver, 5).until(
-            EC.presence_of_all_elements_located((By.XPATH, menu_urls_xpath_expr))
+            EC.presence_of_all_elements_located((By.XPATH, "//mab-menu-listing[@list]"))
         )
-        logger.info('Menu items loaded.')
+        logger.info('Menu listing loaded.')
 
-        menu_els = menu_driver.find_elements(By.XPATH, menu_urls_xpath_expr + "//a")
-        food_menus_urls = [el.get_attribute("href") for el in menu_els]
+        # The site now renders menu tiles via a <mab-menu-listing list="[JSON]">
+        # web component instead of plain anchors; read the menu paths from
+        # its JSON attribute rather than the DOM.
+        food_menus_urls = []
+        for listing_el in menu_driver.find_elements(By.XPATH, "//mab-menu-listing[@list]"):
+            raw_list = listing_el.get_attribute("list")
+            if not raw_list:
+                continue
+            try:
+                entries = json.loads(raw_list)
+            except (TypeError, ValueError):
+                continue
+            for entry in entries:
+                page_path = entry.get("aemPagePath")
+                if page_path:
+                    food_menus_urls.append(urljoin(START_URL, page_path))
         logger.info('Found %d menu items', len(food_menus_urls))
 
         for idx, menu_url in enumerate(food_menus_urls):

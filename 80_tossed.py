@@ -48,18 +48,19 @@ def get_categories(driver):
     print("Identifying menu categories...")
     categories = []
     
-    # Wait for the category list to be present
+    # The category list's own classes are build-hashed CSS-in-JS names that
+    # rotate on every deploy; match on the stable /menu/category/ href
+    # pattern instead.
+    category_link_selector = "a[href*='/menu/category/']"
     try:
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "ul.e1cxpgmd8"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, category_link_selector))
         )
     except:
         print("Timeout waiting for category list.")
         return []
 
-    # The categories are in a horizontal list. We need to handle the 'next' button if it exists.
-    # However, listing the links directly might be more reliable.
-    links = driver.find_elements(By.CSS_SELECTOR, "ul.e1cxpgmd8 a")
+    links = driver.find_elements(By.CSS_SELECTOR, category_link_selector)
     for link in links:
         href = link.get_attribute('href')
         name = link.get_attribute('textContent').strip()

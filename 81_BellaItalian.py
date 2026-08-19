@@ -92,6 +92,13 @@ def parse_menu_page(page_tree, menu_name: str) -> list[dict]:
                 if recipe_guid:
                     item_dict['recipe_id'] = recipe_guid
 
+                # Dietary/allergen labels (e.g. GF, VG, V) embedded in the item's
+                # own modal markup -- no separate PDF needed, they're already here.
+                label_nodes = r.xpath('.//span[contains(@class, "k10-recipe-modal__label")]')
+                labels = [n.text_content().strip() for n in label_nodes if n.text_content().strip()]
+                if labels:
+                    item_dict['allergens'] = ', '.join(dict.fromkeys(labels))
+
                 # Inline nutrition table rows if present under this recipe node
                 nutrition_rows = r.xpath('.//table//tr')
                 for row in nutrition_rows:

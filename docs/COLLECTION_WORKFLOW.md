@@ -1,13 +1,21 @@
 # MenuTracker collection workflow
 
-This guide covers the manifest-based collection command, its data and evidence
-files, and the manual repair workflow. Run all commands from the repository
-root unless a command says otherwise.
+This guide covers the manifest-based collection command, its data and evidence files, and the manual repair workflow. Run all commands from the repository root unless a command says otherwise.
 
-The latest verified first-20 acceptance result and row-count audit are in
-[`FIRST_20_SMOKE_TEST.md`](FIRST_20_SMOKE_TEST.md).
-The verified chains 21–50 results, repairs, and source limitations are in
-[`CHAINS_21_50_SMOKE_TEST.md`](CHAINS_21_50_SMOKE_TEST.md).
+The latest verified first-20 acceptance result and row-count audit are in [`FIRST_20_SMOKE_TEST.md`](FIRST_20_SMOKE_TEST.md). The verified chains 21–50 results, repairs, and source limitations are in [`CHAINS_21_50_SMOKE_TEST.md`](CHAINS_21_50_SMOKE_TEST.md). The verified chains 51–91 results, repairs, and source limitations are in [`CHAINS_51_91_SMOKE_TEST.md`](CHAINS_51_91_SMOKE_TEST.md).
+
+A full fresh run of every chain 1–91 manifest entry (84/84 passing) is consolidated at `collection/Aug_collection_2026/`, an ignored local folder like any other collection round — see the three docs above for per-wave detail. 69 Tesco Cafe needed a repair along the way: plain `requests` traffic gets a persistent 403 from tesco.com's bot-fingerprint detection (confirmed with fuller browser headers and across a day boundary, so not a rate limit), while a real Selenium session loads the same page normally. `69_TescoCafe.py` now fetches through a Selenium session instead of `requests`; it belongs in the Selenium bucket for future `--workers` planning, not the plain-`requests` group.
+
+### Missing PDF outputs found by revisiting `menutracker.ipynb` (20 August 2026)
+
+The original notebook paired several chains' structured CSV/JSON scrape with a second, separate PDF-download call for supplementary allergen data — a pattern the manifest and rewritten scripts had silently dropped for six chains. Revisited every notebook cell against the current scripts and manifest and fixed each real gap; all fixes verified with a focused `Master_Compile.py` run:
+
+- **69 Tesco Cafe:** was missing the allergen matrix PDF entirely (only the calorie-only web scrape ran). Added a browser-download step (Chrome auto-downloads PDFs when `download_dir` is set) that grabs the current GB allergen matrix from the same already-loaded page, filtering out the Northern Ireland variant and the unrelated NI menu PDF. Manifest now also requires `*Allergen*.pdf`.
+- **70 The Cornish Bakery:** same gap. Added `combo_PDFDownload(..., keyword='Allergen')` against the live products page, which now serves an `Allergen_Matrix_V42.pdf` alongside an unrelated Modern Slavery Policy PDF the keyword filter correctly skips.
+- **73 Top Golf:** the script already downloads its menu PDF internally (per its own 2026-06-09 comment) — this was a manifest gap only, not a code gap. Added `*.pdf` to its output contract.
+- **81 Bella Italia:** the notebook's separate allergen-PDF source (a `menus.tenkites.com/thebigtg/mobilemenus11` page with a "DOWNLOAD ALLERGEN" button) no longer exists — confirmed dead at both the notebook's URL and the site's current per-item scrape base. But the per-item allergen/dietary labels (`GF`, `VG`, `V`, ...) turned out to already be embedded in the same `k10-recipe-modal__label` markup the script already parses; extracting them there was a smaller, more robust fix than chasing a dead link. 95 of 115 rows now carry allergen data; no PDF needed.
+- **85 The Real Greek:** same missing-PDF gap, fixed with `combo_PDFDownload(..., keyword='Allergen')` against the menu page (finds both the main allergen menu and a Deliveroo variant). Also found and fixed an unrelated bug while wiring this in: `main()` had an early `return` after a successful plain-`requests` fetch, so the PDF-download call — placed after the Selenium-fallback branch — silently never ran whenever the faster `requests` path succeeded (which is the common case). Restructured to a single exit path so the PDF download always runs.
+- **82 Cafe Rouge — investigated, left as a known gap, no fix applied.** The notebook's allergen-PDF source (a "DOWNLOAD ALLERGEN" button reached via `use_partial_link_text`) is gone from both the notebook's original venue page and the one the current script uses; no embedded `tenkites.com` URL and no inline allergen markup were found on caferouge.com's own page either (unlike sibling chain 81, which is the same corporate group but a different site template). The structured nutrition scrape is unaffected. Revisit if a current allergen source turns up.
 
 ## Process flow
 
@@ -25,14 +33,11 @@ Master_Compile.py
   -> exits 0 when every scraper passes, otherwise exits 1
 ```
 
-`scraper_manifest.json` is the source of truth. Running the command without
-script names runs every declared entry, not every historical scraper in the
-repository.
+`scraper_manifest.json` is the source of truth. Running the command without script names runs every declared entry, not every historical scraper in the repository.
 
 ## 1. Prepare the environment
 
-Create and activate the project's virtual environment, then install the
-requirements:
+Create and activate the project's virtual environment, then install the requirements:
 
 ```bash
 python -m venv .venv
@@ -40,12 +45,9 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Selenium scrapers also require Chrome or Chromium; `helpers.py` detects the
-installed browser and obtains a compatible driver.
+Selenium scrapers also require Chrome or Chromium; `helpers.py` detects the installed browser and obtains a compatible driver.
 
-Ben & Jerry's retains official nutrition-image URLs without extra software.
-Install the system `tesseract` executable if OCR text is also required; when it
-is absent, the image URLs remain available but `nutrition_info` is empty.
+Ben & Jerry's retains official nutrition-image URLs without extra software. Install the system `tesseract` executable if OCR text is also required; when it is absent, the image URLs remain available but `nutrition_info` is empty.
 
 Check the available command options:
 
@@ -82,29 +84,21 @@ Every runnable scraper needs one entry in `scraper_manifest.json`:
 
 - `script` is a Python file relative to the repository root.
 - Each `outputs` value is a glob relative to the collection folder.
-- Every declared glob must match at least one regular file that is non-empty
-  and modified after that scraper process started.
-- CSV outputs need a header and a nonblank data row, JSON outputs must parse
-  and be nonempty, and PDF outputs must begin with a PDF signature.
-- A scraper that exits successfully but misses one output contract still
-  fails. Old output files never make a new run pass.
+- Every declared glob must match at least one regular file that is non-empty and modified after that scraper process started.
+- CSV outputs need a header and a nonblank data row, JSON outputs must parse and be nonempty, and PDF outputs must begin with a PDF signature.
+- A scraper that exits successfully but misses one output contract still fails. Old output files never make a new run pass.
 
-Add a scraper only after its filenames are stable enough to express these
-contracts. Do not add automatic discovery: an explicit manifest prevents old
-or experimental scripts from running accidentally.
+Add a scraper only after its filenames are stable enough to express these contracts. Do not add automatic discovery: an explicit manifest prevents old or experimental scripts from running accidentally.
 
 ## 3. Run a collection
 
-Run every manifest entry serially. This is the safe default for a mixed wave
-containing Selenium scrapers:
+Run every manifest entry serially. This is the safe default for a mixed wave containing Selenium scrapers:
 
 ```bash
 python Master_Compile.py Aug_collection_2026
 ```
 
-Increase `--workers` only for a known-safe subset. In particular, Costa must
-run without another active browser scraper; concurrent baseline runs killed
-its browser session while the same full scrape passed with one worker.
+Increase `--workers` only for a known-safe subset. In particular, Costa must run without another active browser scraper; concurrent baseline runs killed its browser session while the same full scrape passed with one worker.
 
 Run a selected subset by giving exact manifest script names:
 
@@ -119,19 +113,13 @@ Select one scraper while debugging to keep logs and browser activity simple:
 python Master_Compile.py Aug_collection_2026 53_Harvester.py --workers 1
 ```
 
-The collection argument may also be an absolute path. A relative name is
-created under the current directory locally, or under the MenuTracker Google
-Drive directory when the existing Colab path is detected.
+The collection argument may also be an absolute path. A relative name is created under the current directory locally, or under the MenuTracker Google Drive directory when the existing Colab path is detected.
 
-Do not run `define_collection_wave.py` first. `Master_Compile.py` calls
-`create_collection()` and passes the resulting `MENUTRACKER_COLLECTION`
-environment variable to every scraper subprocess.
+Do not run `define_collection_wave.py` first. `Master_Compile.py` calls `create_collection()` and passes the resulting `MENUTRACKER_COLLECTION` environment variable to every scraper subprocess.
 
 ### Optional repair issues
 
-Issue creation is off by default. It is available only on the explicitly
-trusted Mac, requires an authenticated GitHub CLI, and applies only after the
-same likely-code failure occurs in two consecutive completed runs:
+Issue creation is off by default. It is available only on the explicitly trusted Mac, requires an authenticated GitHub CLI, and applies only after the same likely-code failure occurs in two consecutive completed runs:
 
 ```bash
 python Master_Compile.py Aug_collection_2026 53_Harvester.py \
@@ -140,9 +128,7 @@ python Master_Compile.py Aug_collection_2026 53_Harvester.py \
   --github-repository intake24/Menu_Tracker
 ```
 
-Colab and other operating systems reject `--github-issues`. External failures
-never create repair issues. Raw logs remain local and are not copied to
-GitHub.
+Colab and other operating systems reject `--github-issues`. External failures never create repair issues. Raw logs remain local and are not copied to GitHub.
 
 ## 4. Read the outcomes
 
@@ -154,11 +140,9 @@ The terminal prints one line per completed scraper and a final summary:
 ```
 
 - `OK` means the process returned zero and every output contract passed.
-- `FAIL` means the process failed or at least one output was missing, empty,
-  or stale.
+- `FAIL` means the process failed or at least one output was missing, empty, or stale.
 - `rc` is the subprocess return code.
-- The command exits `0` only when every selected scraper passes; otherwise it
-  exits `1`, so shell scripts and schedulers can detect the failed wave.
+- The command exits `0` only when every selected scraper passes; otherwise it exits `1`, so shell scripts and schedulers can detect the failed wave.
 
 ### Successful data layout
 
@@ -178,16 +162,11 @@ Aug_collection_2026/
     └── topgolf_items.json
 ```
 
-The chain subdirectory name is `<chain>_<Mon-DD-YYYY>`. CSV files are the
-tabular collection results. JSON files retain the scraper's structured result.
-Some chains also retain source PDFs or other intermediate artifacts. Exact
-required filenames come from the manifest; additional files are not validated.
+The chain subdirectory name is `<chain>_<Mon-DD-YYYY>`. CSV files are the tabular collection results. JSON files retain the scraper's structured result. Some chains also retain source PDFs or other intermediate artifacts. Exact required filenames come from the manifest; additional files are not validated.
 
-Collection folders and generated CSV, JSON, PDF, and evidence files are local
-run artifacts and should not be committed.
+Collection folders and generated CSV, JSON, PDF, and evidence files are local run artifacts and should not be committed.
 
-`Master_Compile.py` stops at validated chain-level outputs. It does not merge
-or standardise the collected chains; that remains a separate downstream phase.
+`Master_Compile.py` stops at validated chain-level outputs. It does not merge or standardise the collected chains; that remains a separate downstream phase.
 
 ### Failed-run evidence layout
 
@@ -212,22 +191,16 @@ evidence/
 | `stderr.txt` | Complete captured standard error and traceback from the scraper subprocess. |
 | `evidence_log.json` | Latest failure class, consecutive count, recent run IDs, and update time for each scraper. A successful run resets its count. |
 
-The run ID is a UTC timestamp. Evidence contains diagnostics, not result CSVs;
-follow paths in `output_validation.json` back to the collection folder.
+The run ID is a UTC timestamp. Evidence contains diagnostics, not result CSVs; follow paths in `output_validation.json` back to the collection folder.
 
 ## 5. Troubleshoot a failure
 
 Work in this order:
 
-1. Copy the `Evidence: evidence/<run-id>/<scraper>` path printed after the
-   terminal summary.
-2. Open `result.json`. A non-zero `returncode` means the scraper process
-   failed; return code zero with `ok: false` points to output validation.
-3. Open `output_validation.json`. For each failed glob, check whether files
-   are absent, empty, marked `fresh: false`, or have `semantic_ok: false`, then
-   read the accompanying `reason`.
-4. Read the last useful lines of `stderr.txt`, then consult `stdout.txt` for
-   the scraper's progress immediately before the failure.
+1. Copy the `Evidence: evidence/<run-id>/<scraper>` path printed after the terminal summary.
+2. Open `result.json`. A non-zero `returncode` means the scraper process failed; return code zero with `ok: false` points to output validation.
+3. Open `output_validation.json`. For each failed glob, check whether files are absent, empty, marked `fresh: false`, or have `semantic_ok: false`, then read the accompanying `reason`.
+4. Read the last useful lines of `stderr.txt`, then consult `stdout.txt` for the scraper's progress immediately before the failure.
 5. Reproduce only that scraper with one worker and a new collection folder:
 
    ```bash
@@ -235,15 +208,9 @@ Work in this order:
      53_Harvester.py --workers 1
    ```
 
-6. Determine whether the cause is external or in code. HTTP 403/429/5xx,
-   DNS, connection, timeout, TLS, missing dependency, and browser-driver errors
-   are classified as `external`. Selector, parsing, exception, and output
-   contract defects are normally `likely-code`.
-7. Repair the shared/root cause with the smallest compatible change. Preserve
-   both local and Colab operation.
-8. Run the focused tests, then repeat the exact one-scraper command. The repair
-   is verified only when the terminal reports `OK` and every manifest contract
-   passes.
+6. Determine whether the cause is external or in code. HTTP 403/429/5xx, DNS, connection, timeout, TLS, missing dependency, and browser-driver errors are classified as `external`. Selector, parsing, exception, and output contract defects are normally `likely-code`.
+7. Repair the shared/root cause with the smallest compatible change. Preserve both local and Colab operation.
+8. Run the focused tests, then repeat the exact one-scraper command. The repair is verified only when the terminal reports `OK` and every manifest contract passes.
 
 Common symptoms:
 
@@ -258,9 +225,7 @@ Common symptoms:
 
 ## 6. Use an agent for repair
 
-Agent assistance is manual: a failed run does not modify code, commit, or open
-a pull request by itself. Give the agent the local bundle path and exact
-scraper, and tell it to follow `AGENTS.md` and `docs/REPAIR_AGENT.md`.
+Agent assistance is manual: a failed run does not modify code, commit, or open a pull request by itself. Give the agent the local bundle path and exact scraper, and tell it to follow `AGENTS.md` and `docs/REPAIR_AGENT.md`.
 
 Example request:
 
@@ -278,10 +243,7 @@ Before accepting an agent repair:
 1. Confirm `jj status` shows the intended feature work and no unrelated files.
 2. Review `jj diff`; collected data and `evidence/` must remain untracked.
 3. Require the focused unit tests and the exact manifest scraper smoke test.
-4. Check the new collection's CSV/JSON directly and compare row counts and
-   required columns with the previous successful wave.
-5. Commit with the repository's Conventional Commit format and keep `main`
-   unchanged until the feature is reviewed and merged.
+4. Check the new collection's CSV/JSON directly and compare row counts and required columns with the previous successful wave.
+5. Commit with the repository's Conventional Commit format and keep `main` unchanged until the feature is reviewed and merged.
 
-For a repair issue and pull-request workflow, continue with
-[`REPAIR_AGENT.md`](REPAIR_AGENT.md).
+For a repair issue and pull-request workflow, continue with [`REPAIR_AGENT.md`](REPAIR_AGENT.md).
