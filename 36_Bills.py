@@ -95,6 +95,8 @@ def parse_menu_page(html: str) -> List[Dict]:
         for it in items:
             name = text_or_none(it.select_one("span.k10-recipe__name")) or text_or_none(it.select_one("span.k10-w-recipe__name"))
             desc = text_or_none(it.select_one("span.k10-recipe__desc")) or text_or_none(it.select_one("span.k10-w-recipe__desc"))
+            if not name and not desc:
+                continue
 
             # Choose table: prefer one inside the category; else fallback to global nth
             table = it.select_one("table")

@@ -59,7 +59,7 @@ def parse_item(html_text: str) -> Dict:
     if kids:
         nutrient_list.append(kids)
 
-    headers = ['kj', 'fat', 'carb', 'fibre', 'protein', 'satfat', 'sugar', 'sodium']
+    headers = ['kcal', 'fat', 'carb', 'fibre', 'protein', 'satfat', 'sugar', 'sodium']
 
     base: Dict = {
         'rest_name': REST_NAME,

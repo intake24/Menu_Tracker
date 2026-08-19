@@ -17,8 +17,7 @@ file_json = path_out + '/allbarone_nutrition.json'
 file_csv = path_out + '/allbarone_nutrition.csv'
 REST_NAME = "All Bar One"
 
-START_URL = 'https://www.allbarone.co.uk/food-and-drink'
-menu_urls_xpath_expr = "//*[@class='image parbase section']"
+START_URL = 'https://www.allbarone.co.uk/foodmenu'
 
 logger = logging.getLogger(__name__)
 
@@ -327,13 +326,10 @@ def crawl_nutrition():
         logger.info('Page URL: %s', menu_driver.current_url)
         logger.info('Waiting for menu items to load…')
         WebDriverWait(menu_driver, 5).until(
-            EC.presence_of_all_elements_located((By.XPATH, menu_urls_xpath_expr))
+            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class,'MenuItem__wrapper')]") )
         )
         logger.info('Menu items loaded.')
-
-        menu_els = menu_driver.find_elements(By.XPATH, menu_urls_xpath_expr + "//a")
-        food_menus_urls = [el.get_attribute("href") for el in menu_els]
-        logger.info('Found %d menu items', len(food_menus_urls))
+        food_menus_urls = [menu_driver.current_url]
 
         for idx, menu_url in enumerate(food_menus_urls):
             # Skip all except the 5th menu for testing
@@ -401,9 +397,9 @@ def crawl_nutrition():
             pd.DataFrame(results).to_csv(file_csv, index=False)
             logger.info("Data also saved to CSV: %s", file_csv)
     except TimeoutException:
-        logger.warning('Timed out waiting for menu items.')
+        raise RuntimeError('Timed out waiting for menu items.')
     except Exception as e:
-        logger.error('Error during scraping: %s', e)
+        raise RuntimeError(f'Error during scraping: {e}') from e
     finally:
         menu_driver.quit()
 

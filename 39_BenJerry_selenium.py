@@ -1,10 +1,14 @@
+import json
 import os
 import re
+import shutil
+import subprocess
 import time
 from datetime import date
 from urllib.parse import urljoin
 
 import pandas as pd
+import requests
 from lxml import html
 
 from define_collection_wave import folder
@@ -68,6 +72,25 @@ def get_text_or_empty(driver, by, selector):
         return driver.find_element(by, selector).text.strip()
     except NoSuchElementException:
         return ''
+
+
+def ocr_image(url):
+    if not url or not shutil.which('tesseract'):
+        return ''
+    url = re.sub(r'imwidth=\d+', 'imwidth=2400', url)
+    response = requests.get(
+        url,
+        headers={'User-Agent': 'Mozilla/5.0', 'Referer': HOST + '/'},
+        timeout=30,
+    )
+    response.raise_for_status()
+    result = subprocess.run(
+        ['tesseract', 'stdin', 'stdout', '--psm', '11'],
+        input=response.content,
+        capture_output=True,
+        timeout=30,
+    )
+    return result.stdout.decode(errors='replace').strip() if result.returncode == 0 else ''
 
 
 def _accordion_text(driver, button_texts, timeout=2):
@@ -151,13 +174,24 @@ def parse_product_page(driver):
         ['Allergen', 'Allergens', 'Allergy information'],
         timeout=2
     )
+    nutrition_image = ''
+    try:
+        image = driver.find_element(
+            By.XPATH,
+            "//img[contains(@alt,'Nutrition Facts') or contains(@src,'Nutritional')]",
+        )
+        nutrition_image = image.get_attribute('src') or ''
+        if not nutrition_info:
+            nutrition_info = ocr_image(nutrition_image)
+    except Exception:
+        pass
     if not allergens and ingredients:
         # Fallback: "May contain: X, Y" in ingredients
         m = re.search(r'[Mm]ay contain[:\s]+([^.>]+)', ingredients)
         if m:
             allergens = m.group(1).strip()
 
-    return product_name, product_description, ingredients, ingredient_image, nutrition_info, allergens
+    return product_name, product_description, ingredients, ingredient_image, nutrition_image, nutrition_info, allergens
 
 
 def crawl_ben_jerry_selenium(quick_test=False):
@@ -210,7 +244,7 @@ def crawl_ben_jerry_selenium(quick_test=False):
             for idx_prod, prod_url in enumerate(product_links, start=1):
                 print(f"    [{idx_prod}/{len(product_links)}] Visiting product: {prod_url}")
                 get_url(driver, prod_url)
-                name, desc, ing, ing_img, nutrition_info, allergens = parse_product_page(driver)
+                name, desc, ing, ing_img, nutrition_image, nutrition_info, allergens = parse_product_page(driver)
 
                 record = {
                     'collection_date': date.today().strftime('%b-%d-%Y'),
@@ -220,6 +254,7 @@ def crawl_ben_jerry_selenium(quick_test=False):
                     'product_description': desc,
                     'ingredients': ing,
                     'ingredient_image': ing_img,
+                    'nutrition_image': nutrition_image,
                     'nutrition_info': nutrition_info,
                     'allergens': allergens,
                 }
@@ -232,12 +267,9 @@ def crawl_ben_jerry_selenium(quick_test=False):
     # Write once at end
     df = pd.DataFrame(data_store)
     out_file = os.path.join(path_benjerry, '39_BenJerry_items.csv')
-    if os.path.exists(out_file):
-        df.to_csv(out_file, header=False, index=False, mode='a')
-        print('File appended')
-    else:
-        df.to_csv(out_file, header=True, index=False, mode='a')
-        print('File created')
+    with open(os.path.join(path_benjerry, '39_BenJerry_items.json'), 'w') as file:
+        json.dump(data_store, file, indent=2)
+    df.to_csv(out_file, index=False)
 
     print(f"Scraped {len(data_store)} items. Data saved to {out_file}")
 

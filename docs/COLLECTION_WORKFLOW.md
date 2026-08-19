@@ -6,6 +6,8 @@ root unless a command says otherwise.
 
 The latest verified first-20 acceptance result and row-count audit are in
 [`FIRST_20_SMOKE_TEST.md`](FIRST_20_SMOKE_TEST.md).
+The verified chains 21–50 results, repairs, and source limitations are in
+[`CHAINS_21_50_SMOKE_TEST.md`](CHAINS_21_50_SMOKE_TEST.md).
 
 ## Process flow
 
@@ -40,6 +42,10 @@ python -m pip install -r requirements.txt
 
 Selenium scrapers also require Chrome or Chromium; `helpers.py` detects the
 installed browser and obtains a compatible driver.
+
+Ben & Jerry's retains official nutrition-image URLs without extra software.
+Install the system `tesseract` executable if OCR text is also required; when it
+is absent, the image URLs remain available but `nutrition_info` is empty.
 
 Check the available command options:
 

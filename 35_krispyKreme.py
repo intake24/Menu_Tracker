@@ -1,8 +1,12 @@
-import requests
+"""Download Krispy Kreme's current nutrition and allergen guide."""
 
-url = "https://www.krispykreme.co.uk/media/wysiwyg/PDFs/UK2024_Allergen_Nutrition_Book_301024_UK__GimmeSmore_.pdf"
+from helpers import selenium_PDF
 
-response = requests.get(url)
 
-with open("Nutrition.pdf", "wb") as file:
-    file.write(response.content)
+if __name__ == "__main__":
+    selenium_PDF(
+        "35_KrispyKreme",
+        url="https://app.krispykreme.co.uk/nutritionals",
+        xpath_="//a[contains(translate(@href,'PDF','pdf'),'.pdf')]",
+        download_via_browser=True,
+    )

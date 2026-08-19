@@ -118,6 +118,8 @@ def crawl_crussh():
     driver = setup_driver()
     try:
         categories = get_category_links(driver)
+        if not categories:
+            raise RuntimeError("Crussh's official domain no longer publishes a menu")
         all_records: List[Dict] = []
         for cat in categories:
             try:
