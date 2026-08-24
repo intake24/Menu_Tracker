@@ -2,7 +2,9 @@
 
 import argparse
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from collection_archive import build_run_summary, create_archive, upload_archive
 from define_collection_wave import create_collection
 from run_parallel import DEFAULT_MANIFEST, run_scripts_parallel
 
@@ -26,7 +28,12 @@ def parse_args(argv=None):
     )
     parser.add_argument("--workers", type=int, default=1, help="Concurrent scrapers (default: 1)")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--evidence-dir", type=Path, default=ROOT / "evidence")
+    parser.add_argument("--evidence-dir", type=Path)
+    parser.add_argument(
+        "--archive-gcs",
+        metavar="BUCKET_URI",
+        help="Archive this completed wave to a bucket-only gs:// URI",
+    )
     parser.add_argument(
         "--github-issues",
         action="store_true",
@@ -36,12 +43,15 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.workers < 1:
         parser.error("--workers must be at least 1")
+    if args.archive_gcs and args.evidence_dir is None:
+        parser.error("--archive-gcs requires a run-specific --evidence-dir")
+    args.evidence_dir = args.evidence_dir or ROOT / "evidence"
     return args
 
 
 def main(argv=None):
     args = parse_args(argv)
-    create_collection(args.collection)
+    collection = Path(create_collection(args.collection))
     results = run_scripts_parallel(
         args.scripts or None,
         max_workers=args.workers,
@@ -55,6 +65,22 @@ def main(argv=None):
     for result in failed:
         if result.get("evidence_bundle"):
             print(f"Evidence: {result['evidence_bundle']}")
+    if args.archive_gcs:
+        archive_name = f"{collection.name}.zip"
+        object_name = f"archives/{archive_name}"
+        try:
+            with TemporaryDirectory(prefix="menutracker-archive-") as directory:
+                archive = create_archive(
+                    collection,
+                    args.evidence_dir,
+                    args.manifest,
+                    build_run_summary(results),
+                    Path(directory) / archive_name,
+                )
+                print(f"Archive: {upload_archive(archive, args.archive_gcs, object_name)}")
+        except Exception as error:
+            print(f"Archive failed: {error}")
+            return 2
     return 1 if failed else 0
 
 

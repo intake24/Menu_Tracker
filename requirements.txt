@@ -57,6 +57,7 @@ webdriver-manager==4.0.2
 # xlrd==2.0.1
 # zope.interface==5.4.0
 fake-useragent==2.2.0
+google-cloud-storage>=3.0,<4.0
 
 google-colab-selenium==1.0.17
 undetected-chromedriver==3.5.5

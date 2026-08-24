@@ -99,3 +99,9 @@ CITATION.cff
 
 # Local scraper diagnostics
 evidence/
+
+# Codebase memory index (local, machine-specific)
+.codebase-memory/
+
+# Local docs, untracked
+docs/
