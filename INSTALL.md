@@ -29,13 +29,23 @@ deleting `collections/` to clean up test output) and the *next* run silently
 breaks. Passing `--user "$(id -u):$(id -g)"` makes the container process
 match your host user, so it can write into a directory your user owns.
 
+For the same reason, **always pass `--evidence-dir` pointing under
+`collections/`** (every example below does this). Left at its default, it
+resolves to `/app/evidence` — inside the image's own `/app` tree, owned by
+the image's baked-in `appuser` at build time, not by your host UID. Unless
+your host UID happens to match `appuser`'s, `--user` then can't write there
+and you'll hit `PermissionError: [Errno 13] Permission denied: '/app/evidence'`.
+Routing it under the bind-mounted `collections/` avoids that entirely, same
+fix as `collections/` itself.
+
 Run a single chain:
 ```bash
 mkdir -p collections
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
-  menutracker Master_Compile.py my_test_run 1_McDonalds.py
+  menutracker Master_Compile.py my_test_run 1_McDonalds.py \
+    --evidence-dir "collections/evidence/my_test_run"
 ```
 
 Run a full collection wave with GCS archiving (see [GCS credentials](#gcs-credentials-for---archive-gcs) below):
@@ -157,7 +167,8 @@ mkdir -p collections
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
-  menutracker Master_Compile.py smoke_test 1_McDonalds.py
+  menutracker Master_Compile.py smoke_test 1_McDonalds.py \
+    --evidence-dir "collections/evidence/smoke_test"
 ```
 Look for `[OK] 1_McDonalds.py (...s, rc=0)` in the output, and check the
 scraped files landed under `collections/smoke_test/`:
@@ -181,7 +192,8 @@ mkdir -p collections
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
-  menutracker Master_Compile.py smoke_test_pdf 35_krispyKreme.py
+  menutracker Master_Compile.py smoke_test_pdf 35_krispyKreme.py \
+    --evidence-dir "collections/evidence/smoke_test_pdf"
 ```
 Look for `[OK] 35_krispyKreme.py (...s, rc=0)`, and confirm a PDF actually
 landed:
@@ -261,6 +273,16 @@ tail -f /path/to/logfile   # watch until the next scheduled run completes
   `docker run` — it's a no-op when the directory already exists and owned
   correctly, so there's no downside to always running it. Also confirm the
   `docker run` passes `--user "$(id -u):$(id -g)"`, as shown above.
+- **`PermissionError: [Errno 13] Permission denied: '/app/evidence'`**: the
+  command left `--evidence-dir` unset, so it defaulted to `/app/evidence` —
+  inside the image's own `/app` tree, owned by the image's baked-in
+  `appuser` at build time, not your host UID. This can pass on one machine
+  and fail on another purely by UID coincidence (works if your host UID
+  happens to equal `appuser`'s, breaks otherwise — e.g. on an AD/LDAP box
+  where UIDs aren't the usual `1000`). Fix: always pass
+  `--evidence-dir "collections/evidence/<name>"` so it lands under the
+  bind-mounted, host-owned `collections/` instead, as every example above
+  does.
 - **`Could not detect a Chrome or Chromium installation`**: no matching
   binary on `PATH`. Follow the Chrome install steps above.
 - **`session not created: This version of ChromeDriver only supports Chrome
