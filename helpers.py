@@ -483,13 +483,61 @@ def combo_PDFDownload_class_name(rest_name, url, keyword='pdf', prex=None, verif
     print('finished downloading pdfs for ' + rest_name)
 
 # Download PDFs with Selenium - unified function replacing vue_PDF and java_PDF
+def _pdf_snapshot(path: str) -> set[str]:
+    try:
+        return {f for f in os.listdir(path) if f.lower().endswith('.pdf')}
+    except FileNotFoundError:
+        return set()
+
+
 def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text=False,
                  partial_link_value='Download', navigate_to_links=False, wait_time=5,
                  handle_runtime_pdf: bool = True, download_filename: str | None = None,
-                 download_via_browser: bool = False, click_xpath=None, url_pattern=None):
+                 download_via_browser: bool = False, click_xpath=None, url_pattern=None,
+                 wait_for_xpath: bool = False, retries: int = 1):
     """
-    Download PDFs using Selenium with flexible link discovery options.
-    
+    Download PDFs using Selenium, retrying the whole browse-and-download
+    attempt (fresh Chrome session each time) if no PDF landed in the output
+    folder, doubling wait_time on each retry. See `_selenium_PDF_attempt`
+    for the discovery/download options (xpath_, prefix, etc.) — they're
+    forwarded unchanged on every attempt.
+
+    Args:
+        retries: Total attempts before giving up (default 1 = no retry,
+            existing callers keep today's behavior unchanged). E.g.
+            retries=3 with wait_time=10 tries at wait_time 10s, 20s, 40s.
+    """
+    path = create_folder(rest_name, getattr(dcw, 'folder', None))
+    wait = wait_time
+    for attempt in range(1, retries + 1):
+        before = _pdf_snapshot(path)
+        _selenium_PDF_attempt(
+            rest_name, url, xpath_=xpath_, prefix=prefix,
+            use_partial_link_text=use_partial_link_text,
+            partial_link_value=partial_link_value,
+            navigate_to_links=navigate_to_links, wait_time=wait,
+            handle_runtime_pdf=handle_runtime_pdf,
+            download_filename=download_filename,
+            download_via_browser=download_via_browser,
+            click_xpath=click_xpath, url_pattern=url_pattern,
+            wait_for_xpath=wait_for_xpath,
+        )
+        if _pdf_snapshot(path) - before:
+            return
+        if attempt < retries:
+            wait *= 2
+            print(f'No PDF downloaded on attempt {attempt}/{retries}; retrying with wait_time={wait}s')
+
+
+def _selenium_PDF_attempt(rest_name, url, xpath_=None, prefix=None, use_partial_link_text=False,
+                 partial_link_value='Download', navigate_to_links=False, wait_time=5,
+                 handle_runtime_pdf: bool = True, download_filename: str | None = None,
+                 download_via_browser: bool = False, click_xpath=None, url_pattern=None,
+                 wait_for_xpath: bool = False):
+    """
+    Single browse-and-download attempt. See `selenium_PDF` for the public,
+    retrying entry point.
+
     Args:
         rest_name: Restaurant name for folder creation
         url: Source URL to scrape
@@ -498,21 +546,39 @@ def selenium_PDF(rest_name, url, xpath_=None, prefix=None, use_partial_link_text
         use_partial_link_text: If True, use PARTIAL_LINK_TEXT instead of XPath
         partial_link_value: Text to search for when use_partial_link_text=True
         navigate_to_links: If True, navigate to each link to get final URL
-        wait_time: Seconds to wait between operations
+        wait_time: Seconds to wait between operations (also the poll timeout
+            when wait_for_xpath=True)
         download_via_browser: Download direct PDF links through Chrome instead of requests
         click_xpath: Optional element to click before discovering links
         url_pattern: Optional regex for extracting links from rendered page source
+        wait_for_xpath: If True and xpath_ is set, poll for that element to
+            appear (up to wait_time seconds) instead of a fixed sleep after
+            page load. More reliable on JS-rendered pages, where render time
+            varies run to run and a fixed sleep either wastes time or isn't
+            long enough. Opt-in, default False, so existing callers keep
+            today's fixed-sleep behavior unchanged.
     """
     # Create folder and configure driver to download into it when handling runtime PDFs
     path = create_folder(rest_name, getattr(dcw, 'folder', None))
     driver = setup_driver(download_dir=path if (handle_runtime_pdf or download_via_browser) else None)
-    
+
     try:
         print(f'1. Source URL: {url}')
-        
+
         print(f'2. Browsing: {url}')
         driver.get(url)
-        sleep(wait_time)
+        if wait_for_xpath and xpath_:
+            try:
+                WebDriverWait(driver, wait_time).until(
+                    EC.presence_of_element_located((By.XPATH, xpath_))
+                )
+            except Exception:
+                # Best-effort: fall through to the element search below, which
+                # already handles finding nothing (retries the runtime-PDF
+                # click path, then reports 0 triggers found).
+                pass
+        else:
+            sleep(wait_time)
 
         if click_xpath:
             triggers = driver.find_elements(By.XPATH, click_xpath)
