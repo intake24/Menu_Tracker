@@ -45,19 +45,20 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
   menutracker Master_Compile.py my_test_run 1_McDonalds.py \
-    --evidence-dir "collections/evidence/my_test_run"
+    --evidence-dir "collections/my_test_run_evidence"
 ```
 
 Run a full collection wave with GCS archiving (see [GCS credentials](#gcs-credentials-for---archive-gcs) below):
 ```bash
 mkdir -p collections
+run_id="$(date -u +%Y-%m-%d)"
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
   -v "/path/to/service-account.json:/app/creds.json:ro" \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
-  menutracker Master_Compile.py "$(date -u +%Y-%m-%d)_collection" \
-    --evidence-dir "collections/evidence/$(date -u +%Y-%m-%d)" \
+  menutracker Master_Compile.py "${run_id}_collection" \
+    --evidence-dir "collections/${run_id}_evidence" \
     --archive-gcs "gs://<your-bucket>"
 ```
 
@@ -168,7 +169,7 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
   menutracker Master_Compile.py smoke_test 1_McDonalds.py \
-    --evidence-dir "collections/evidence/smoke_test"
+    --evidence-dir "collections/smoke_test_evidence"
 ```
 Look for `[OK] 1_McDonalds.py (...s, rc=0)` in the output, and check the
 scraped files landed under `collections/smoke_test/`:
@@ -193,7 +194,7 @@ docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "$(pwd)/collections:/app/collections" \
   menutracker Master_Compile.py smoke_test_pdf 35_krispyKreme.py \
-    --evidence-dir "collections/evidence/smoke_test_pdf"
+    --evidence-dir "collections/smoke_test_pdf_evidence"
 ```
 Look for `[OK] 35_krispyKreme.py (...s, rc=0)`, and confirm a PDF actually
 landed:
@@ -218,7 +219,7 @@ docker run --rm \
   -v "/path/to/service-account.json:/app/creds.json:ro" \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
   menutracker Master_Compile.py smoke_test_gcs 1_McDonalds.py \
-    --evidence-dir "collections/evidence/smoke_test_gcs" \
+    --evidence-dir "collections/smoke_test_gcs_evidence" \
     --archive-gcs "gs://<your-bucket>"
 ```
 Expect a line like `Archive: gs://<your-bucket>/archives/smoke_test_gcs.zip`.
@@ -280,7 +281,7 @@ tail -f /path/to/logfile   # watch until the next scheduled run completes
   and fail on another purely by UID coincidence (works if your host UID
   happens to equal `appuser`'s, breaks otherwise — e.g. on an AD/LDAP box
   where UIDs aren't the usual `1000`). Fix: always pass
-  `--evidence-dir "collections/evidence/<name>"` so it lands under the
+  `--evidence-dir "collections/<name>_evidence"` so it lands under the
   bind-mounted, host-owned `collections/` instead, as every example above
   does.
 - **`Could not detect a Chrome or Chromium installation`**: no matching

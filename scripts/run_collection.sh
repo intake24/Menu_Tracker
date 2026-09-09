@@ -16,5 +16,5 @@ exec flock -n "/tmp/menutracker-${USER}.lock" \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/creds.json \
   menutracker Master_Compile.py \
   "${run_id}_collection" \
-  --evidence-dir "collections/evidence/${run_id}" \
+  --evidence-dir "collections/${run_id}_evidence" \
   --archive-gcs "gs://intake24-menutracker-collections"
