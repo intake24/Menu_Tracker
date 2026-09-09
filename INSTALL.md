@@ -289,6 +289,13 @@ tail -f /path/to/logfile   # watch until the next scheduled run completes
   version N`**: Chrome updated (or was reinstalled) and the cached
   ChromeDriver in `.drivers/` no longer matches. Delete `.drivers/` and
   re-run — `undetected_chromedriver` will fetch a matching driver.
+- **`selenium.common.exceptions.NoSuchDriverException: Unable to obtain
+  driver for chrome`** (Docker only): `--user <host-uid>:<host-gid>` gives a
+  UID with no `/etc/passwd` entry, so `$HOME` resolves to `/` — Selenium
+  Manager can't write its ChromeDriver cache there. The image bakes in
+  `ENV HOME=/tmp` to avoid this; if you still hit it, rebuild the image
+  (`docker build -t menutracker .`) to pick up that fix, or add `-e
+  HOME=/tmp` to the `docker run` command as a one-off workaround.
 - **`permission denied while trying to connect to the docker API`**: your
   user isn't in the `docker` group, or you haven't logged back in since being
   added to it.
