@@ -130,6 +130,28 @@ class RunnerTests(unittest.TestCase):
                 {path.name for path in bundle.iterdir()},
             )
 
+    def test_timeout_kills_and_marks_failed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            collection = root / "collection"
+            collection.mkdir()
+            (root / "slow.py").write_text("import time\ntime.sleep(5)\n", encoding="utf-8")
+            manifest = root / "manifest.json"
+            manifest.write_text(
+                json.dumps({"scrapers": [{"script": "slow.py", "outputs": ["nope.pdf"]}]}),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"MENUTRACKER_COLLECTION": str(collection)}):
+                results = run_scripts_parallel(
+                    ["slow.py"], cwd=root, manifest_path=manifest,
+                    evidence_dir=root / "evidence", scripts_dir=".", timeout_seconds=1,
+                )
+            result = results["slow.py"]
+            self.assertFalse(result["ok"])
+            self.assertEqual(-997, result["returncode"])
+            self.assertLess(result["seconds"], 4, "should be killed near the 1s timeout, not run the full 5s sleep")
+            self.assertIn("Timed out after 1s", result["stderr"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -200,6 +200,7 @@ def run_scripts_parallel(
     enable_github_issues=False,
     github_repository=None,
     scripts_dir=DEFAULT_SCRIPTS_DIR,
+    timeout_seconds=None,
 ):
     """Run manifest-selected scrapers concurrently and validate their outputs."""
     collection = os.environ.get("MENUTRACKER_COLLECTION")
@@ -247,8 +248,13 @@ def run_scripts_parallel(
                     text=True,
                     capture_output=True,
                     env=env,
+                    timeout=timeout_seconds,
                 )
                 returncode, stdout, stderr = process.returncode, process.stdout, process.stderr
+            except subprocess.TimeoutExpired as error:
+                returncode = -997
+                stdout = error.stdout or ""
+                stderr = (error.stderr or "") + f"\nTimed out after {timeout_seconds}s"
             except OSError as error:
                 returncode, stdout, stderr = -998, "", str(error)
 

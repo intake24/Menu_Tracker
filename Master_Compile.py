@@ -27,6 +27,13 @@ def parse_args(argv=None):
         help="Manifest script names to run; omit to run every manifest entry",
     )
     parser.add_argument("--workers", type=int, default=1, help="Concurrent scrapers (default: 1)")
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=1200,
+        metavar="SECONDS",
+        help="Kill and mark failed any scraper still running after this long (default: 1200s, 0 disables)",
+    )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence-dir", type=Path)
     parser.add_argument(
@@ -43,6 +50,8 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.workers < 1:
         parser.error("--workers must be at least 1")
+    if args.timeout < 0:
+        parser.error("--timeout must be at least 0")
     if args.archive_gcs and args.evidence_dir is None:
         parser.error("--archive-gcs requires a run-specific --evidence-dir")
     args.evidence_dir = args.evidence_dir or ROOT / "evidence"
@@ -60,6 +69,7 @@ def main(argv=None):
         evidence_dir=args.evidence_dir,
         enable_github_issues=args.github_issues,
         github_repository=args.github_repository,
+        timeout_seconds=args.timeout or None,
     )
     failed = [result for result in results.values() if not result["ok"]]
     for result in failed:
