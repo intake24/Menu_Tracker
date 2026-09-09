@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from run_parallel import (
     classify_failure,
+    filter_for_resume,
     make_issue_payload,
     run_scripts_parallel,
     sync_repair_issue,
@@ -129,6 +130,26 @@ class RunnerTests(unittest.TestCase):
                 {"result.json", "output_validation.json", "stdout.txt", "stderr.txt"},
                 {path.name for path in bundle.iterdir()},
             )
+
+    def test_filter_for_resume_skips_already_valid_scripts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            collection = Path(directory)
+            (collection / "done_Sep-09-2026").mkdir()
+            (collection / "done_Sep-09-2026" / "result.csv").write_text("name\nok\n", encoding="utf-8")
+            manifest = {
+                "done.py": ["done_*/*.csv"],
+                "pending.py": ["pending_*/*.csv"],
+            }
+            remaining = filter_for_resume(collection, manifest, ["done.py", "pending.py"])
+            self.assertEqual(["pending.py"], remaining)
+
+    def test_filter_for_resume_empty_when_everything_done(self):
+        with tempfile.TemporaryDirectory() as directory:
+            collection = Path(directory)
+            (collection / "done_Sep-09-2026").mkdir()
+            (collection / "done_Sep-09-2026" / "result.csv").write_text("name\nok\n", encoding="utf-8")
+            manifest = {"done.py": ["done_*/*.csv"]}
+            self.assertEqual([], filter_for_resume(collection, manifest, ["done.py"]))
 
     def test_timeout_kills_and_marks_failed(self):
         with tempfile.TemporaryDirectory() as directory:

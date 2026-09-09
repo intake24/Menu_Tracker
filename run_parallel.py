@@ -102,6 +102,25 @@ def validate_outputs(collection, output_globs, started_at):
     return contracts
 
 
+def filter_for_resume(collection, manifest, scripts):
+    """Return only the scripts whose manifest-declared outputs don't already
+    validate against the existing collection folder.
+
+    Freshness floor is 0 (any existing valid file counts as done), not the
+    current run's start time -- resuming is specifically about trusting
+    output from a *previous* run.
+    # ponytail: a stale file from an unrelated old run reusing the same
+    # collection name would be wrongly treated as already-done; add a floor
+    # (e.g. oldest child folder's mtime) if that ever bites in practice.
+    """
+    remaining = []
+    for script in scripts:
+        validation = validate_outputs(collection, manifest[script], 0)
+        if not all(item["ok"] for item in validation):
+            remaining.append(script)
+    return remaining
+
+
 def classify_failure(result):
     text = f"{result.get('stdout', '')}\n{result.get('stderr', '')}"
     return "external" if EXTERNAL_FAILURE.search(text) else "likely-code"

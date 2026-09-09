@@ -14,6 +14,89 @@ class MasterCompileTests(unittest.TestCase):
                 ["Sep_collection_2026", "--archive-gcs", "gs://intake24-menutracker-collections"]
             )
 
+    def test_collection_required_without_resume(self):
+        with self.assertRaises(SystemExit):
+            Master_Compile.parse_args([])
+
+    @patch("Master_Compile.resolve_collection")
+    def test_resume_with_explicit_collection_validates_it_exists(self, resolve_collection):
+        resolve_collection.return_value = "Sep_collection_2026"
+        args = Master_Compile.parse_args(["Sep_collection_2026", "--resume"])
+        resolve_collection.assert_called_once_with("Sep_collection_2026")
+        self.assertEqual("Sep_collection_2026", args.collection)
+
+    @patch("Master_Compile.resolve_collection")
+    def test_resume_errors_when_nothing_to_resume(self, resolve_collection):
+        resolve_collection.return_value = None
+        with self.assertRaises(SystemExit):
+            Master_Compile.parse_args(["--resume"])
+
+    @patch("Master_Compile.resolve_collection")
+    def test_resume_errors_when_named_collection_not_found(self, resolve_collection):
+        resolve_collection.return_value = None
+        with self.assertRaises(SystemExit):
+            Master_Compile.parse_args(["Missing_collection", "--resume"])
+
+    @patch("Master_Compile.resolve_collection")
+    def test_resume_auto_derives_evidence_dir(self, resolve_collection):
+        resolve_collection.return_value = "2026-09-09_1851Z_weekly_collection"
+        args = Master_Compile.parse_args(["--resume"])
+        self.assertEqual("2026-09-09_1851Z_weekly_collection", args.collection)
+        self.assertEqual(
+            Master_Compile.ROOT / "collections" / "2026-09-09_1851Z_weekly_evidence",
+            args.evidence_dir,
+        )
+
+    @patch("Master_Compile.resolve_collection")
+    def test_resume_with_collection_and_scripts_restricts_correctly(self, resolve_collection):
+        resolve_collection.return_value = "Sep_collection_2026"
+        args = Master_Compile.parse_args(
+            ["Sep_collection_2026", "--resume", "1_McDonalds.py", "9_Subway.py"]
+        )
+        self.assertEqual("Sep_collection_2026", args.collection)
+        self.assertEqual(["1_McDonalds.py", "9_Subway.py"], args.scripts)
+
+    @patch("Master_Compile.resolve_collection")
+    @patch("Master_Compile.filter_for_resume")
+    @patch("Master_Compile.load_manifest")
+    @patch("Master_Compile.create_collection")
+    @patch("Master_Compile.run_scripts_parallel")
+    def test_main_resume_skips_when_everything_already_done(
+        self, run, create_collection, load_manifest, filter_for_resume, resolve_collection
+    ):
+        resolve_collection.return_value = "Sep_collection_2026_collection"
+        create_collection.return_value = "/tmp/Sep_collection_2026_collection"
+        load_manifest.return_value = {"a.py": ["a_*.csv"], "b.py": ["b_*.csv"]}
+        filter_for_resume.return_value = []
+
+        with patch("builtins.print") as output:
+            status = Master_Compile.main(["--resume", "Sep_collection_2026_collection"])
+
+        run.assert_not_called()
+        self.assertEqual(0, status)
+        output.assert_called_once_with(
+            "Collection 'Sep_collection_2026_collection' is already complete; nothing to resume."
+        )
+
+    @patch("Master_Compile.resolve_collection")
+    @patch("Master_Compile.filter_for_resume")
+    @patch("Master_Compile.load_manifest")
+    @patch("Master_Compile.create_collection")
+    @patch("Master_Compile.run_scripts_parallel")
+    def test_main_resume_runs_only_remaining_scripts(
+        self, run, create_collection, load_manifest, filter_for_resume, resolve_collection
+    ):
+        resolve_collection.return_value = "Sep_collection_2026_collection"
+        create_collection.return_value = "/tmp/Sep_collection_2026_collection"
+        load_manifest.return_value = {"a.py": ["a_*.csv"], "b.py": ["b_*.csv"]}
+        filter_for_resume.return_value = ["b.py"]
+        run.return_value = {"b.py": {"ok": True}}
+
+        status = Master_Compile.main(["--resume", "Sep_collection_2026_collection"])
+
+        self.assertEqual(["b.py"], run.call_args.args[0])
+        self.assertEqual(0, status)
+
     @patch("Master_Compile.run_scripts_parallel")
     @patch("Master_Compile.create_collection")
     def test_main_configures_collection_and_returns_failure_status(self, create_collection, run):

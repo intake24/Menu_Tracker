@@ -5,8 +5,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from collection_archive import build_run_summary, create_archive, upload_archive
-from define_collection_wave import create_collection
-from run_parallel import DEFAULT_MANIFEST, run_scripts_parallel
+from define_collection_wave import create_collection, resolve_collection
+from run_parallel import DEFAULT_MANIFEST, filter_for_resume, load_manifest, run_scripts_parallel
 
 
 ROOT = Path(__file__).resolve().parent
@@ -18,7 +18,10 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "collection",
-        help="Collection folder name or absolute path, for example Aug_collection_2026",
+        nargs="?",
+        default=None,
+        help="Collection folder name or absolute path, for example Aug_collection_2026. "
+        "Required unless --resume is used.",
     )
     parser.add_argument(
         "scripts",
@@ -37,6 +40,16 @@ def parse_args(argv=None):
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence-dir", type=Path)
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume an existing collection wave, skipping chains whose output "
+        "already validates. Uses the collection named by the positional "
+        "argument, or the most recently modified one if that's omitted -- "
+        "but if you omit it while also restricting to specific SCRIPTs, the "
+        "first SCRIPT name is misread as the collection name, so name the "
+        "collection explicitly whenever SCRIPT args are given.",
+    )
+    parser.add_argument(
         "--archive-gcs",
         metavar="BUCKET_URI",
         help="Archive this completed wave to a bucket-only gs:// URI",
@@ -47,22 +60,54 @@ def parse_args(argv=None):
         help="On the trusted Mac, report repeated likely-code failures to GitHub",
     )
     parser.add_argument("--github-repository", help="GitHub owner/repository for repair issues")
-    args = parser.parse_args(argv)
+    # parse_args (not parse_intermixed_args) mis-splits SCRIPT args between the
+    # optional `collection` positional and `scripts` when --resume sits between
+    # them, on Python 3.11 (works fine on 3.14 -- an argparse version quirk).
+    # parse_intermixed_args handles every ordering correctly.
+    args = parser.parse_intermixed_args(argv)
     if args.workers < 1:
         parser.error("--workers must be at least 1")
     if args.timeout < 0:
         parser.error("--timeout must be at least 0")
     if args.archive_gcs and args.evidence_dir is None:
         parser.error("--archive-gcs requires a run-specific --evidence-dir")
-    args.evidence_dir = args.evidence_dir or ROOT / "evidence"
+
+    if args.resume:
+        target = resolve_collection(args.collection)
+        if target is None:
+            what = f"Collection {args.collection!r}" if args.collection else "Latest collection"
+            parser.error(f"{what} not found, please start without --resume")
+        args.collection = target
+    elif not args.collection:
+        parser.error("collection is required unless --resume is used")
+
+    if args.evidence_dir is None:
+        name = args.collection
+        if args.resume and name.endswith("_collection"):
+            name = name[: -len("_collection")]
+            args.evidence_dir = ROOT / "collections" / f"{name}_evidence"
+        else:
+            args.evidence_dir = ROOT / "evidence"
     return args
 
 
 def main(argv=None):
     args = parse_args(argv)
     collection = Path(create_collection(args.collection))
+
+    scripts = args.scripts or None
+    if args.resume:
+        manifest = load_manifest(args.manifest)
+        requested = args.scripts or list(manifest)
+        scripts = filter_for_resume(collection, manifest, requested)
+        skipped = len(requested) - len(scripts)
+        if not scripts:
+            print(f"Collection '{args.collection}' is already complete; nothing to resume.")
+            return 0
+        print(f"Resume: {skipped}/{len(requested)} already complete, skipping. Running {len(scripts)}.")
+
     results = run_scripts_parallel(
-        args.scripts or None,
+        scripts,
         max_workers=args.workers,
         cwd=ROOT,
         manifest_path=args.manifest,

@@ -41,6 +41,16 @@ python Master_Compile.py Aug_collection_2026 1_McDonalds.py
 
 **Define Collection Wave When Running**: Pass the collection folder name to `Master_Compile.py`; do not edit or run `define_collection_wave.py` first.
 
+**Resuming an Interrupted Wave**: `--resume` skips any script whose manifest-declared output already validates against the existing collection folder, and re-runs everything else (failed or never attempted). Omit the collection name to resume the most recently modified one:
+```bash
+python Master_Compile.py --resume                                   # resume latest, everything remaining
+python Master_Compile.py Aug_collection_2026 --resume                # resume a specific wave
+python Master_Compile.py Aug_collection_2026 --resume 1_McDonalds.py # resume a specific wave, specific scripts
+```
+Name the collection explicitly whenever also passing SCRIPT names without it, the first SCRIPT name is misread as the collection name (a Python 3.11 argparse limitation with `--resume` between two positionals — `parse_intermixed_args` fixes the ordering issue but not this specific omitted-collection case). If everything requested already succeeded, it prints a message and exits without running anything.
+
+**Per-Script Timeout**: `--timeout` (seconds, default 2400) kills and marks failed any scraper still running past that. Default is a guess based on the slowest chain observed so far, not a measured ceiling — some legitimately take 20+ minutes (Selenium-heavy sites); tune it if you see false-positive timeouts.
+
 ## Key Conventions
 
 **Naming**: Numbered files indicate chain priority/order. Suffixes indicate scraping method:

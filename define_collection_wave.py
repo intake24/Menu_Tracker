@@ -15,6 +15,26 @@ def _detect_base_dir() -> str:
     # recurrent scrape results live there, gitignored)
     return os.path.join(os.getcwd(), 'collections')
 
+def resolve_collection(explicit: Optional[str] = None) -> Optional[str]:
+    """Return the collection folder name to resume.
+
+    If `explicit` is given, return it only if that folder already exists.
+    Otherwise return the most recently modified *_collection folder under
+    the base dir. None if nothing matches either way.
+    """
+    base = _detect_base_dir()
+    if explicit:
+        return explicit if os.path.isdir(os.path.join(base, explicit)) else None
+    if not os.path.isdir(base):
+        return None
+    candidates = [
+        entry for entry in os.scandir(base)
+        if entry.is_dir() and entry.name.endswith('_collection')
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda entry: entry.stat().st_mtime).name
+
 def create_collection(collection_name: str = "default_collection") -> str:
     """Create (if needed) and set the global collection folder.
 
