@@ -49,6 +49,11 @@ python Master_Compile.py Aug_collection_2026 --resume 1_McDonalds.py # resume a 
 ```
 Name the collection explicitly whenever also passing SCRIPT names without it, the first SCRIPT name is misread as the collection name (a Python 3.11 argparse limitation with `--resume` between two positionals — `parse_intermixed_args` fixes the ordering issue but not this specific omitted-collection case). If everything requested already succeeded, it prints a message and exits without running anything.
 
+What a resume leaves behind, concretely:
+- Scripts that already validated are never touched: no re-run, no changed files, their `evidence_log.json` entry stays exactly as the original run left it.
+- `create_folder()` (helpers.py) names each chain's own subfolder `<rest_name>_<today's date>`, not the collection's original date. Resuming the *same calendar day* as the failed attempt overwrites that chain's partial output in place, clean. Resuming on a *later day* creates a new dated subfolder instead — the old broken one from the failed attempt is not deleted, just left orphaned alongside the new good one. Never-attempted chains that finally run on resume also get today's date, so one collection folder can end up with chain subfolders spanning several different dates even though it's nominally one wave.
+- Evidence bundles (written only on failure, under `evidence_dir/<run_id>/<script>/`) get a fresh `run_id` per `Master_Compile.py` invocation. A chain that failed on the original run and fails again on resume ends up with two separate bundles, not one overwritten in place; if it succeeds on resume, the original failed bundle just stays there as stale history.
+
 **Per-Script Timeout**: `--timeout` (seconds, default 2400) kills and marks failed any scraper still running past that. Default is a guess based on the slowest chain observed so far, not a measured ceiling — some legitimately take 20+ minutes (Selenium-heavy sites); tune it if you see false-positive timeouts.
 
 ## Key Conventions
