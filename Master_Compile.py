@@ -30,9 +30,9 @@ def parse_args(argv=None):
     parser.add_argument(
         "--timeout",
         type=int,
-        default=1200,
+        default=2400,
         metavar="SECONDS",
-        help="Kill and mark failed any scraper still running after this long (default: 1200s, 0 disables)",
+        help="Kill and mark failed any scraper still running after this long (default: 2400s, 0 disables)",
     )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--evidence-dir", type=Path)
