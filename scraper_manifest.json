@@ -57,7 +57,7 @@
       "script": "9_Subway.py",
       "outputs": [
         "9_Subway_*/*NutritionalInformation*.pdf",
-        "9_Subway_*/*AllergenInformation*.pdf"
+        "9_Subway_*/*Allergen*Information*.pdf"
       ]
     },
     {
