@@ -33,4 +33,11 @@ USER appuser
 # the repo root; PYTHONPATH lets that resolve for `docker run ... food-chains/X.py`.
 ENV PYTHONPATH=/app
 
+# `docker run --user <host-uid>:<host-gid>` (needed so bind-mounted output
+# dirs stay host-owned) gives a UID with no /etc/passwd entry unless it
+# happens to match appuser's. Without a passwd entry, $HOME resolves to "/",
+# which Selenium Manager can't write its ChromeDriver cache/download to
+# (NoSuchDriverException). /tmp is writable by any UID, passwd entry or not.
+ENV HOME=/tmp
+
 ENTRYPOINT ["python"]
