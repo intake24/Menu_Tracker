@@ -691,38 +691,6 @@ def combo_imgDownload(rest_name,url,folder):
         IMGDownloader(image_link,image_path)
 
 
-# function: create a folder and run the spider
-def RunSpider(spidername, folder, json_=False):
-    '''
-    This function allows the spiders to run and saves the spider outputs
-    :param spidername: the name of the spider you want to run
-    :param folder: folder for the data collection wave
-    :param json_: Default is False (file saving as csv).
-    :return: spider output saved in csv or json
-    '''
-    #op_sys = platform.system() # for the windows system, I will use the relative path for the file storage path
-    #print(op_sys)
-    os.chdir(root_path)
-    path = create_folder(spidername, folder) # create a folder for the spider output
-    os.chdir('./Scrapy_spiders')
-    if json_:
-        json_file_name = spidername + '_items.json'
-        json_file_path_root = os.path.join(root_path, path, json_file_name)
-        os.system("scrapy crawl " + spidername + " -o" + json_file_path_root)
-        with open(json_file_path_root,'r') as jsonfile:
-            json_data = json.load(jsonfile)
-            json_df = pd.DataFrame(json_data)
-            json_df.to_csv(json_file_path_root.replace('.json', '.csv'), index=False)
-    else:
-        csv_file_name = spidername + '_items.csv'
-        csv_file_path_root = os.path.join(root_path, path, csv_file_name)
-        cmd = "scrapy crawl " + spidername + " -o " + csv_file_path_root
-        print('cmd=' + cmd)
-        # os.system("scrapy crawl " + spidername + " -o " + csv_file_path_root)
-    os.chdir(root_path)
-    print('root_path=' + root_path)
-    print('finished scraping ' + spidername)
-
 # function: run the script for a restaurant (requests)
 def RunScript(rest_name):
     try:

@@ -1,11 +1,16 @@
-import importlib
+import importlib.util
+import sys
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
 from bs4 import BeautifulSoup
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for helpers/define_collection_wave
 
-cookhouse = importlib.import_module("49_CookhousePub")
+spec = importlib.util.spec_from_file_location('cookhouse', Path(__file__).with_name('49_CookhousePub.py'))
+cookhouse = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cookhouse)
 
 
 class CookhousePubTests(unittest.TestCase):

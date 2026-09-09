@@ -4,7 +4,7 @@
 
 
 ## 1. What are MenuTracker and the codebase? 
-MenuTracker is a database that contains nutritional information of menu items served by large out-of-home chains in the UK. Large chain restaurants are defined as those with over 250 employees that provide nutritional information on their websites. The codebase of MenuTracker is written in Python, predominantly using <a href='https://scrapy.org/'> Scrapy framework</a>. Some chains have nutritional information on HTML pages, while others only provide nutritional information in PDF format. Hence, we developed scripts that allow **automatic download of nutritional PDFs** (for PDFs only) and **automated web scraping of nutritional information presented online** (for HTML pages). For more information about the development of MenuTracker, please refer to our paper <a href='https://publichealth.jmir.org/2022/9/e39033'>here</a>. 
+MenuTracker is a database that contains nutritional information of menu items served by large out-of-home chains in the UK. Large chain restaurants are defined as those with over 250 employees that provide nutritional information on their websites. The codebase of MenuTracker is written in Python, using Selenium and direct HTTP requests. Some chains have nutritional information on HTML pages, while others only provide nutritional information in PDF format. Hence, we developed scripts that allow **automatic download of nutritional PDFs** (for PDFs only) and **automated web scraping of nutritional information presented online** (for HTML pages). For more information about the development of MenuTracker, please refer to our paper <a href='https://publichealth.jmir.org/2022/9/e39033'>here</a>. 
 
 ## 2. Why would I want to use MenuTracker?
 If you are a researcher interested in the nutritional content of food served out-of-home, in particular how this changes over time in the UK. For researchers in other countries who wish to establish a similar nutritional database, MenuTracker is also a starting point for you to develop your own scripts.
@@ -51,10 +51,10 @@ As chain websites change frequently, we will update the scripts every quarter. W
 ## 5. What is in this repo? 
 There are two steps for obtaining MenuTracker data. First, we use Python scripts to collect restaurant nutritional information. Next, we standardise and compile all the data. 
 ### **Data Collection**:
--  `Master_Compile.py` runs the scrapers declared in `scraper_manifest.json`, validates fresh outputs, and records local evidence for failures. See [`docs/COLLECTION_WORKFLOW.md`](docs/COLLECTION_WORKFLOW.md) for commands, output layout, and troubleshooting.
+-  `Master_Compile.py` runs the scrapers declared in `scraper_manifest.json`, validates fresh outputs, and records local evidence for failures. See [`INSTALL.md`](INSTALL.md) for setup and commands.
 -  `helpers.py` contains helpful Python functions and variables for MenuTracker data collection. For example, `combo_PDFDownload` enables the automatic download of nutritional PDF for the restaurant and creates a folder to save the PDF. 
--  `/Scrapy_spiders/Scrapy_spiders/spiders/~` contains individual web crawlers for chains, e.g., Nandos, Burger King, etc. Running individual spiders will initiate the web scraping of nutritional information for specific chains.  
--  Other scripts, such as `4_Greggs.py`, also scrapes information for a specific chain, although not written in Python Scrapy framework. 
+-  `food-chains/` contains one numbered script per chain, e.g., `10_Nandos.py`, `12_BurgerKing.py`, `4_Greggs.py`. Each scrapes information for a specific chain; run them via `Master_Compile.py` so they can resolve their `helpers.py` import.
+-  `collections/` holds every collection wave's output (auto-created, gitignored) — one-off test runs and recurring scheduled runs alike.
 ### **Data Cleaning**:
 - `Master_Compile.py` ends at validated, chain-level raw outputs. Merging and standardisation are a separate downstream process.
 
@@ -62,14 +62,14 @@ There are two steps for obtaining MenuTracker data. First, we use Python scripts
 
 ## 6. How do I use this codebase? 
 ### Step 1: Clone this repo 
-### Step 2: Setting up the right virtual environment 
-- All required Python packages are listed in `requirements.txt`.
-- Install Chrome or Chromium for Selenium scrapers; `helpers.py` resolves a compatible driver automatically.
+### Step 2: Set up your environment
+- Easiest path: build the included `Dockerfile` — it bundles Chromium and every dependency the scrapers need. Or set up a native virtualenv with `requirements.txt` and install Chrome/Chromium yourself.
+- Full step-by-step instructions for both, including running on a Linux server, are in [`INSTALL.md`](INSTALL.md).
 ### Step 3: Make changes where necessary
 - Review `scraper_manifest.json` and its required output globs.
 - Update relative/absolute paths where necessary.
 ### Step 4: Run the code for data collection!
-- Run `python Master_Compile.py <collection-name>` for all manifest entries, or append exact script names for selected chains. See [`docs/COLLECTION_WORKFLOW.md`](docs/COLLECTION_WORKFLOW.md).
+- Run `python Master_Compile.py <collection-name>` for all manifest entries, or append exact script names for selected chains. Output lands under `collections/`. See [`INSTALL.md`](INSTALL.md) for commands.
 ### Step 5: Extract data from PDF
 - If the chain you are interested in only provides nutritional information in PDF format, use Tabula or Camelot (linked above) to extract their data tables and save the csv in the corresponding folder.
 ### Step 6: Compile and standardise the data

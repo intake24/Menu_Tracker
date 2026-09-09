@@ -1,8 +1,11 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for helpers/define_collection_wave
 
 import define_collection_wave as dcw
 

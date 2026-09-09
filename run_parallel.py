@@ -11,6 +11,7 @@ import time
 
 
 DEFAULT_MANIFEST = Path(__file__).with_name("scraper_manifest.json")
+DEFAULT_SCRIPTS_DIR = "food-chains"
 EXTERNAL_FAILURE = re.compile(
     r"\b(?:403|429|5\d\d)\b|"
     r"dns|name or service not known|temporary failure in name resolution|"
@@ -198,6 +199,7 @@ def run_scripts_parallel(
     evidence_dir=None,
     enable_github_issues=False,
     github_repository=None,
+    scripts_dir=DEFAULT_SCRIPTS_DIR,
 ):
     """Run manifest-selected scrapers concurrently and validate their outputs."""
     collection = os.environ.get("MENUTRACKER_COLLECTION")
@@ -223,9 +225,16 @@ def run_scripts_parallel(
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     results = {}
     env = os.environ.copy()
+    # Scraper scripts live under scripts_dir but import shared modules (helpers,
+    # define_collection_wave) from the repo root; put root on PYTHONPATH so
+    # those imports resolve without touching every scraper's import lines.
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, [str(cwd), env.get("PYTHONPATH")])
+    )
+    scripts_root = cwd / scripts_dir if scripts_dir else cwd
 
     def run_one(script_name):
-        script_path = cwd / script_name
+        script_path = scripts_root / script_name
         started_at = time.time()
         started_clock = time.monotonic()
         if not script_path.is_file():

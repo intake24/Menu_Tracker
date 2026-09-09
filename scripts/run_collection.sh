@@ -8,6 +8,6 @@ run_id="$(date -u +%Y-%m-%d_%H%MZ_weekly)"
 
 exec flock -n "/tmp/menutracker-${USER}.lock" \
   "${repo_root}/.venv/bin/python" "${repo_root}/Master_Compile.py" \
-  "collection/${run_id}_collection" \
+  "${run_id}_collection" \
   --evidence-dir "${repo_root}/evidence/${run_id}" \
   --archive-gcs "gs://intake24-menutracker-collections"

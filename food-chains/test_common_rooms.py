@@ -1,8 +1,13 @@
-import importlib
+import importlib.util
+import sys
+from pathlib import Path
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for helpers/define_collection_wave
 
-common_rooms = importlib.import_module("48_CommonRooms")
+spec = importlib.util.spec_from_file_location('common_rooms', Path(__file__).with_name('48_CommonRooms.py'))
+common_rooms = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(common_rooms)
 
 
 class CommonRoomsTests(unittest.TestCase):

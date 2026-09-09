@@ -29,4 +29,8 @@ COPY . .
 RUN chown -R appuser:appuser /app
 USER appuser
 
+# food-chains/ scripts import helpers.py and define_collection_wave.py from
+# the repo root; PYTHONPATH lets that resolve for `docker run ... food-chains/X.py`.
+ENV PYTHONPATH=/app
+
 ENTRYPOINT ["python"]

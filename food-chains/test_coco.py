@@ -1,8 +1,13 @@
-import importlib
+import importlib.util
+import sys
+from pathlib import Path
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for helpers/define_collection_wave
 
-coco = importlib.import_module('84_Coco')
+spec = importlib.util.spec_from_file_location('coco', Path(__file__).with_name('84_Coco.py'))
+coco = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(coco)
 
 
 class CocoTests(unittest.TestCase):

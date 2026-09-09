@@ -120,7 +120,7 @@ class RunnerTests(unittest.TestCase):
             with patch.dict(os.environ, {"MENUTRACKER_COLLECTION": str(collection)}):
                 results = run_scripts_parallel(
                     ["fixture.py", "silent.py"], cwd=root, manifest_path=manifest,
-                    evidence_dir=root / "evidence", max_workers=2
+                    evidence_dir=root / "evidence", max_workers=2, scripts_dir="."
                 )
             self.assertTrue(results["fixture.py"]["ok"])
             self.assertFalse(results["silent.py"]["ok"])

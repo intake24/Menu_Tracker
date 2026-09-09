@@ -11,8 +11,9 @@ def _detect_base_dir() -> str:
             return '/content/drive/MyDrive/menutracker'
     except Exception:
         pass
-    # Local default: repository root (cwd)
-    return os.getcwd()
+    # Local default: repository root's collections/ folder (one-off and
+    # recurrent scrape results live there, gitignored)
+    return os.path.join(os.getcwd(), 'collections')
 
 def create_collection(collection_name: str = "default_collection") -> str:
     """Create (if needed) and set the global collection folder.

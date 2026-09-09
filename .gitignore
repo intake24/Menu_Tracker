@@ -87,8 +87,10 @@ Scrapy_spiders/*.json
 *.log
 
 # Ignore data collection folders
+/collections/
 *_collection*/
 *_repair_*/
+collections_backup_*.zip
 
 # Ignore Notes and citation files
 Notes on data collection rounds.docx

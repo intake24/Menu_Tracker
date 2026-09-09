@@ -1,15 +1,14 @@
 # MenuTracker Repository Instructions
 
-MenuTracker is a Python-based web scraping and data collection system that automatically extracts nutritional information from UK food chain restaurant websites. This codebase uses multiple approaches—Scrapy spiders, Selenium-based automation, and direct API calls—to collect and standardize restaurant menu data.
+MenuTracker is a Python-based web scraping and data collection system that automatically extracts nutritional information from UK food chain restaurant websites. This codebase uses multiple approaches—Selenium-based automation and direct API calls—to collect and standardize restaurant menu data.
 
 ## Architecture & Data Flow
 
 **Collection Wave System**: The project is organized around quarterly data collection waves. `Master_Compile.py` creates the requested folder through `define_collection_wave.create_collection()`, exports it to scraper subprocesses, and runs the entries declared in `scraper_manifest.json`. `run_parallel.py` validates fresh outputs and records local evidence for failures. See `docs/COLLECTION_WORKFLOW.md`.
 
-**Three Scraping Approaches**:
-1. **Scrapy Spiders** (`Scrapy_spiders/` directory): Full-featured web crawlers for complex sites with multiple pages or menu sections. Each spider is a class inheriting from `scrapy.Spider` with XPath selectors for HTML parsing.
-2. **Direct Scripts** (numbered files like `1_McDonalds.py`, `4_Greggs.py`): Simpler single-file scrapers for API endpoints or straightforward HTML pages. Import `create_folder()` from helpers to set output path.
-3. **Selenium Automation** (e.g., `3_CostaCoffee_selenium.py`, `39_BenJerry_selenium.py`): Used when JavaScript rendering or bot-detection evasion is required. Uses `setup_driver()` from helpers for anti-detection configuration.
+**Two Scraping Approaches** (all scripts live in `food-chains/`):
+1. **Direct Scripts** (numbered files like `1_McDonalds.py`, `4_Greggs.py`): Simpler single-file scrapers for API endpoints or straightforward HTML pages. Import `create_folder()` from helpers to set output path.
+2. **Selenium Automation** (e.g., `3_CostaCoffee_selenium.py`, `39_BenJerry_selenium.py`): Used when JavaScript rendering or bot-detection evasion is required. Uses `setup_driver()` from helpers for anti-detection configuration.
 
 **Data Output**: All scrapers produce CSV files with standardized column names (e.g., `kcal`, `protein`, `carb`, `fat`, `menu_section`, `item_name`) saved to the collection folder. Some also create JSON files during processing for debugging.
 
@@ -20,7 +19,7 @@ MenuTracker is a Python-based web scraping and data collection system that autom
 **Environment**:
 - Requires Python 3.8+
 - Install dependencies: `pip install -r requirements.txt`
-- Key packages: `beautifulsoup4`, `scrapy`, `selenium`, `pandas`, `lxml`, `requests`, `undetected-chromedriver`, `webdriver-manager`
+- Key packages: `beautifulsoup4`, `selenium`, `pandas`, `lxml`, `requests`, `undetected-chromedriver`, `webdriver-manager`
 - For Colab environments: the code detects `/content/drive/MyDrive` and sets paths accordingly (see `define_collection_wave.py`)
 
 **Chrome Driver**: Selenium Manager resolves a compatible driver if `undetected_chromedriver` fails, but manual setup may still be needed for Colab.
@@ -35,11 +34,9 @@ This executes every manifest entry serially by default and validates all declare
 
 **Single Chain Scraper**:
 ```bash
-# Run individual script (e.g., McDonald's)
-python 1_McDonalds.py
-
-# Run Scrapy spider (e.g., Nandos)
-scrapy crawl 10_Nandos -a output_folder=<path>
+# Run individual script (e.g., McDonald's) via Master_Compile.py so
+# food-chains/ scripts can resolve their helpers.py import
+python Master_Compile.py Aug_collection_2026 1_McDonalds.py
 ```
 
 **Define Collection Wave When Running**: Pass the collection folder name to `Master_Compile.py`; do not edit or run `define_collection_wave.py` first.
@@ -56,7 +53,6 @@ scrapy crawl 10_Nandos -a output_folder=<path>
 - `combo_PDFDownload()`: Download PDFs with a given URL pattern, auto-extracts if possible
 - `java_PDF()`: Handle Java-rendered PDFs
 - `setup_driver()`: Create Chrome WebDriver with anti-bot features
-- `RunSpider(spider_name, folder)`: Execute a Scrapy spider
 - `RunScript(script_name)`: Execute a direct Python script
 
 **Data Schema**: All outputs should include these columns where available:
@@ -78,17 +74,15 @@ scrapy crawl 10_Nandos -a output_folder=<path>
 
 **Adding a New Restaurant Scraper**:
 1. Inspect target website structure (note CSS classes, XPath patterns, if JavaScript-heavy)
-2. If simple API or static HTML: create numbered script in root (e.g., `50_NewChain.py`) using BeautifulSoup or `requests`
-3. If complex multi-page navigation: create Scrapy spider in `Scrapy_spiders/Scrapy_spiders/spiders/`
-4. If JavaScript-rendered or bot-protected: use Selenium with `setup_driver()` from helpers
-5. Ensure output CSV has all standard columns, save to `create_folder(name, folder)`
-6. Test with a small subsection before adding to `Master_Compile.py`
-7. If scraper becomes difficult to maintain, document site structure in `documentation/SCRAPING_REPORT_<chain>.md`
+2. Create a numbered script in `food-chains/` (e.g., `50_NewChain.py`) using BeautifulSoup or `requests` for simple API/static HTML
+3. If JavaScript-rendered or bot-protected: use Selenium with `setup_driver()` from helpers
+4. Ensure output CSV has all standard columns, save to `create_folder(name, folder)`
+5. Test with a small subsection before adding to `Master_Compile.py`
+6. If scraper becomes difficult to maintain, document site structure in `documentation/SCRAPING_REPORT_<chain>.md`
 
 **Debugging Site Changes**:
 - Check `documentation/` for existing scraping notes
 - Use `setup_driver()` headless=False to visually inspect what Selenium sees
-- For Scrapy spiders, print intermediate XPath results or use `-a output_folder=.` to save JSON artifacts
 - Test URL patterns with `requests.get()` first before writing full scraper
 
 **Handling PDFs**: Use helpers like `combo_PDFDownload()` or `java_PDF()`. If extraction fails, fall back to Tabula or Camelot (mentioned in README) and save extracted CSVs to collection folder.
@@ -103,7 +97,7 @@ scrapy crawl 10_Nandos -a output_folder=<path>
 
 ## Debugging & Troubleshooting
 
-- **Import Errors**: Ensure `helpers.py` and `define_collection_wave.py` are in same directory as scraper scripts and Scrapy project
+- **Import Errors**: Scraper scripts live in `food-chains/` and import `helpers.py`/`define_collection_wave.py` from the repo root; running them via `Master_Compile.py` (or the Docker image, which sets `PYTHONPATH=/app`) resolves this automatically. Running a script directly needs `PYTHONPATH=<repo root>` set first.
 - **Chrome Driver Fails**: Check Chrome or Chromium is installed; if `undetected_chromedriver` fails, the helper falls back to Selenium Manager
 - **No Data Output**: Check that `folder` variable is set (run `define_collection_wave.py` first); verify URLs are accessible with manual requests/curl
 - **XPath/Selector Issues**: Websites change frequently. Test selectors in browser dev tools before hardcoding. Consider storing site HTML snapshots in `documentation/` for reference
