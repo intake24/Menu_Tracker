@@ -40,4 +40,10 @@ ENV PYTHONPATH=/app
 # (NoSuchDriverException). /tmp is writable by any UID, passwd entry or not.
 ENV HOME=/tmp
 
+# python's stdout is fully block-buffered (not line-buffered) whenever it
+# isn't attached to a TTY -- true of every `docker run` here, since none
+# pass -t. Without this, `docker logs -f` / `tail -f` on a redirected log
+# can sit empty for a long time, then dump output in one chunk.
+ENV PYTHONUNBUFFERED=1
+
 ENTRYPOINT ["python"]
