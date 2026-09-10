@@ -46,7 +46,7 @@ https://www.sizzlingpubs.co.uk/food#
 # Ember Inns
 https://www.emberinns.co.uk/menus/food#/
 
-# Chef & Brewer (script now scrapes chefandbrewer.com directly -- sitecorecontenthub CDN link below is dead, kept as history)
+# Chef & Brewer (script scrapes chefandbrewer.com directly; the old fixed sitecorecontenthub CDN link was dropped)
 https://www.chefandbrewer.com/pubs/cambridgeshire/bridge/menu
 https://www.smartchef.co.uk/brands/ChefBrewer?siteid=6199
 
@@ -85,7 +85,7 @@ https://www.smartchef.co.uk/Brands/AllBarOne
 # GBK
 https://menus.tenkites.com/brg/gourmetburgerkitchen
 
-# Flaming Grill (script migrated off the dead sitecorecontenthub CDN links to the URL below)
+# Flaming Grill (script discovers the current PDFs from the page below; the old fixed sitecorecontenthub links were dropped)
 https://www.greeneking.co.uk/pubs-restaurants-hotels/flaming-grill/ngci
 
 # Loch Fyne

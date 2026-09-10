@@ -1,7 +1,7 @@
 """Download Farmhouse Inns' current allergen guide from a representative pub page.
 
-The old hardcoded sitecorecontenthub content IDs rotate and 404; discover the
-current link from a stable pub page instead.
+The old hardcoded sitecorecontenthub content ID is tied to one menu season;
+discover the current link from a stable pub page instead.
 """
 
 from helpers import combo_PDFDownload
