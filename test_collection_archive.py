@@ -78,6 +78,22 @@ class CollectionArchiveTests(unittest.TestCase):
             "wave.zip", if_generation_match=0
         )
 
+    def test_upload_overwrite_drops_the_precondition(self):
+        archive = Path("wave.zip")
+        client = Mock()
+
+        upload_archive(
+            archive,
+            "gs://intake24-menutracker-collections",
+            "archives/run-1-collection.zip",
+            client,
+            overwrite=True,
+        )
+
+        client.bucket.return_value.blob.return_value.upload_from_filename.assert_called_once_with(
+            "wave.zip"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

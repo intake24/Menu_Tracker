@@ -108,6 +108,40 @@ class MasterCompileTests(unittest.TestCase):
         self.assertEqual(["b.py"], run.call_args.args[0])
         self.assertEqual(0, status)
 
+    @patch("Master_Compile.resolve_collection")
+    @patch("Master_Compile.filter_for_resume")
+    @patch("Master_Compile.load_manifest")
+    @patch("Master_Compile.upload_archive")
+    @patch("Master_Compile.create_archive")
+    @patch("Master_Compile.create_collection")
+    @patch("Master_Compile.run_scripts_parallel")
+    def test_resume_archive_overwrites_a_previous_upload(
+        self, run, create_collection, create_archive, upload_archive,
+        load_manifest, filter_for_resume, resolve_collection,
+    ):
+        resolve_collection.return_value = "Sep_collection_2026_collection"
+        create_collection.return_value = "/tmp/Sep_collection_2026_collection"
+        load_manifest.return_value = {"b.py": ["b_*.csv"]}
+        filter_for_resume.return_value = ["b.py"]
+        run.return_value = {"b.py": {"ok": True, "run_id": "run-1"}}
+        create_archive.return_value = "/tmp/wave.zip"
+        upload_archive.return_value = "gs://intake24-menutracker-collections/archives/x.zip"
+
+        status = Master_Compile.main(
+            [
+                "Sep_collection_2026_collection", "--resume",
+                "--archive-gcs", "gs://intake24-menutracker-collections",
+            ]
+        )
+
+        self.assertEqual(0, status)
+        upload_archive.assert_called_once_with(
+            "/tmp/wave.zip",
+            "gs://intake24-menutracker-collections",
+            "archives/Sep_collection_2026_collection.zip",
+            overwrite=True,
+        )
+
     @patch("Master_Compile.run_scripts_parallel")
     @patch("Master_Compile.create_collection")
     def test_main_configures_collection_and_returns_failure_status(self, create_collection, run):
@@ -158,6 +192,7 @@ class MasterCompileTests(unittest.TestCase):
             "/tmp/wave.zip",
             "gs://intake24-menutracker-collections",
             "archives/Sep_collection_2026.zip",
+            overwrite=False,
         )
 
     @patch("Master_Compile.upload_archive")

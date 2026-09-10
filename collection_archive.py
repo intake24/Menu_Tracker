@@ -60,8 +60,15 @@ def create_archive(
     return destination
 
 
-def upload_archive(archive: Path, bucket_uri: str, object_name: str, client=None) -> str:
-    """Upload an archive without replacing an existing object."""
+def upload_archive(archive: Path, bucket_uri: str, object_name: str, client=None, overwrite: bool = False) -> str:
+    """Upload an archive.
+
+    By default this refuses to replace an existing object at the same path
+    (protects a fresh wave from accidentally colliding with an unrelated
+    upload). Pass overwrite=True for a resumed wave, where re-uploading a
+    more-complete archive over an earlier partial one at the same path is
+    expected, not an error.
+    """
     if client is None:
         try:
             from google.cloud import storage
@@ -69,7 +76,6 @@ def upload_archive(archive: Path, bucket_uri: str, object_name: str, client=None
             raise RuntimeError("Install google-cloud-storage to upload collection archives") from error
         client = storage.Client()
     bucket_name = parse_bucket_uri(bucket_uri)
-    client.bucket(bucket_name).blob(object_name).upload_from_filename(
-        str(archive), if_generation_match=0
-    )
+    kwargs = {} if overwrite else {"if_generation_match": 0}
+    client.bucket(bucket_name).blob(object_name).upload_from_filename(str(archive), **kwargs)
     return f"gs://{bucket_name}/{object_name}"

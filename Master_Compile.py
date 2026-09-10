@@ -137,7 +137,7 @@ def main(argv=None):
                     build_run_summary(results),
                     Path(directory) / archive_name,
                 )
-                print(f"Archive: {upload_archive(archive, args.archive_gcs, object_name)}")
+                print(f"Archive: {upload_archive(archive, args.archive_gcs, object_name, overwrite=args.resume)}")
         except Exception as error:
             print(f"Archive failed: {error}")
             return 2
