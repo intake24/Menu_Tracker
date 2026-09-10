@@ -108,3 +108,5 @@ evidence/
 
 # Local docs, untracked
 docs/
+AGENTS.md
+CONTEXT.md
