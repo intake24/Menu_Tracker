@@ -131,14 +131,14 @@ https://tkmenus.com/commonroom/
 # Crussh (site down since 2025, chain not in active manifest)
 https://crussh.com/menu/
 
-# Farmhouse Inns (BROKEN -- sole source URL below 404s, script still hardcodes it, active in manifest)
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/1bbe74a89dd140b2a5f2fb881731b286?v=b99b8d6e
+# Farmhouse Inns (script discovers the current sitecorecontenthub PDF link from this page; drink-allergen guide only)
+https://www.farmhouseinns.co.uk/pubs/bedfordshire/maypole-farm/allergens
 
 # Harvester
 https://www.harvester.co.uk/ourmenus#/
 https://www.smartchef.co.uk/brands/harvester/
 
-# Hungry Horse (BROKEN -- all 3 source URLs below 404, script still hardcodes them, active in manifest)
+# Hungry Horse (BROKEN -- all 3 source URLs below 404, script still hardcodes them, active in manifest; its /allergens pages now link out to smartchef.co.uk/brands/LocalsValue?siteid=7674 instead of PDFs)
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/e466f55943f3452a93c9ec9d9315e543?v=0b460e3b
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/6e2804b5e78349f586d714bb835a6f32?v=6408983c
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/4abef2cb48c947c99a06e73ad9b0b2d2?v=eb780b84
@@ -156,13 +156,9 @@ https://leon.co/menu/coffee/
 https://leon.co/menu/drinks/
 https://leon.co/menu/kids/
 
-# Greene King (BROKEN -- all 5 source URLs below 404, script still hardcodes them, active in manifest; graphql line is an unused alternative endpoint, not called by the script)
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/f414e3b9a77842e48de9c7aa19f0d68c?v=7377cce6
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/681e855a3610418db6b3b6409d5d78e2?v=70e2e7f7
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/1150617f977541aab011459ed035a20b?v=d43c9bf0
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/2ecff6ccd8594977a8dbc89e8ee74f1f?v=f35217d8
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/6ebdcf11763c441f8bc98e39971b5d66?v=770e0c2b
-https://menufinder.greeneking-pubs.co.uk/graphql
+# Greene King (script discovers the current sitecorecontenthub PDF link from this page; drink-allergen guide only -- food menus are per-pub and JS-loaded, not captured)
+https://www.greeneking.co.uk/pubs/greater-london/silver-cross/allergens
+https://menufinder.greeneking-pubs.co.uk/graphql (unused by the script)
 
 # Vue Cinema
 https://www.myvue.com/legal/nutritional-information
