@@ -55,6 +55,7 @@ There are two steps for obtaining MenuTracker data. First, we use Python scripts
 -  `helpers.py` contains helpful Python functions and variables for MenuTracker data collection. For example, `combo_PDFDownload` enables the automatic download of nutritional PDF for the restaurant and creates a folder to save the PDF. 
 -  `food-chains/` contains one numbered script per chain, e.g., `10_Nandos.py`, `12_BurgerKing.py`, `4_Greggs.py`. Each scrapes information for a specific chain; run them via `Master_Compile.py` so they can resolve their `helpers.py` import.
 -  `collections/` holds every collection wave's output (auto-created, gitignored) — one-off test runs and recurring scheduled runs alike.
+-  `scraping_urls.txt` is a human-readable reference of the source URL(s) each chain's script scrapes, kept in sync with `food-chains/` — check it before debugging a chain or auditing for dead links.
 ### **Data Cleaning**:
 - `Master_Compile.py` ends at validated, chain-level raw outputs. Merging and standardisation are a separate downstream process.
 

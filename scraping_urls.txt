@@ -37,7 +37,7 @@ https://www.wagamama.com/menu
 # Beefeater
 https://www.beefeater.co.uk/en-gb/allergy-nutrition
 
-# Brewers Fayre
+# Brewers Fayre (closed 2026 -- Whitbread folded it into Premier Inn dining)
 https://www.brewersfayre.co.uk/en-gb/allergy-nutrition
 
 # Sizzling Pubs
@@ -46,20 +46,18 @@ https://www.sizzlingpubs.co.uk/food#
 # Ember Inns
 https://www.emberinns.co.uk/menus/food#/
 
-# Chef & Brewer
+# Chef & Brewer (script now scrapes chefandbrewer.com directly -- sitecorecontenthub CDN link below is dead, kept as history)
 https://www.chefandbrewer.com/pubs/cambridgeshire/bridge/menu
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/79cdd03c480f4c4e855af2cc9e21ae72?v=f3ecf597
 https://www.smartchef.co.uk/brands/ChefBrewer?siteid=6199
 
-# Table Table
+# Table Table (closed 2026 -- Whitbread folded it into Premier Inn dining)
 https://www.tabletable.co.uk/en-gb/allergy-nutrition
 
 # Toby Carvery
 https://www.tobycarvery.co.uk/carvery#/
 https://www.smartchef.co.uk/brands/tobycarvery
 
-# Revolution Bars
-https://book.revolution-bars.co.uk/allergens
+# Revolution Bars (allergen PDF now auto-discovered via wp-json/wp/v2/media, not a fixed URL)
 https://www.revolution-bars.co.uk/bar/cambridge/menus/food-menu
 
 # Zizzi
@@ -87,11 +85,8 @@ https://www.smartchef.co.uk/Brands/AllBarOne
 # GBK
 https://menus.tenkites.com/brg/gourmetburgerkitchen
 
-# Flaming Grill
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/7fc3191a29194b6e87d731c6980a0ad9?v=ad3101c6
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/04578ae0131a47f4bca421ba9a8094c6?v=e6408b52
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/23b8547a88b64c909bb5d116246cedbf?v=b03de5f4
-https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/521c6742f2ba49c6999a570467d1bbc2?v=ae424d24
+# Flaming Grill (script migrated off the dead sitecorecontenthub CDN links to the URL below)
+https://www.greeneking.co.uk/pubs-restaurants-hotels/flaming-grill/ngci
 
 # Loch Fyne
 https://www.lochfyneseafoodandgrill.co.uk/menu/a-la-carte-menu/
@@ -106,7 +101,7 @@ https://wimpy.uk.com/api/menu-dish/
 https://wimpy.uk.com/api/menu-dish/{i}
 
 # Krispy Kreme
-https://www.krispykreme.co.uk/media/wysiwyg/PDFs/UK2024_Allergen_Nutrition_Book_301024_UK__GimmeSmore_.pdf
+https://app.krispykreme.co.uk/nutritionals
 
 # Bill's
 https://menus.tenkites.com/bills/bills03
@@ -133,17 +128,17 @@ https://www.boostjuicebars.co.uk/drinks/
 # Common Room
 https://tkmenus.com/commonroom/
 
-# Crussh
+# Crussh (site down since 2025, chain not in active manifest)
 https://crussh.com/menu/
 
-# Farmhouse Inns
+# Farmhouse Inns (BROKEN -- sole source URL below 404s, script still hardcodes it, active in manifest)
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/1bbe74a89dd140b2a5f2fb881731b286?v=b99b8d6e
 
 # Harvester
 https://www.harvester.co.uk/ourmenus#/
 https://www.smartchef.co.uk/brands/harvester/
 
-# Hungry Horse
+# Hungry Horse (BROKEN -- all 3 source URLs below 404, script still hardcodes them, active in manifest)
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/e466f55943f3452a93c9ec9d9315e543?v=0b460e3b
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/6e2804b5e78349f586d714bb835a6f32?v=6408983c
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/4abef2cb48c947c99a06e73ad9b0b2d2?v=eb780b84
@@ -161,7 +156,7 @@ https://leon.co/menu/coffee/
 https://leon.co/menu/drinks/
 https://leon.co/menu/kids/
 
-# Greene King
+# Greene King (BROKEN -- all 5 source URLs below 404, script still hardcodes them, active in manifest; graphql line is an unused alternative endpoint, not called by the script)
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/f414e3b9a77842e48de9c7aa19f0d68c?v=7377cce6
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/681e855a3610418db6b3b6409d5d78e2?v=70e2e7f7
 https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/1150617f977541aab011459ed035a20b?v=d43c9bf0
