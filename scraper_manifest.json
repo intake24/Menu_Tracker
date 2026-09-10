@@ -325,7 +325,10 @@
     {
       "script": "54_HungryHorse.py",
       "outputs": [
-        "54_HungryHorse_*/*.pdf"
+        "54_HungryHorse_*/hungryhorse_nutrition.json",
+        "54_HungryHorse_*/hungryhorse_nutrition.csv",
+        "54_HungryHorse_*/hungryhorse_allergens.json",
+        "54_HungryHorse_*/hungryhorse_allergens.csv"
       ]
     },
     {
