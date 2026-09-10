@@ -154,9 +154,9 @@ Output lands under `collections/` (auto-created, gitignored).
 
 `scripts/run_collection.sh` wraps a full run with a lock file (so overlapping
 cron triggers don't collide) and GCS archiving. Example crontab entry
-(adjust the schedule and path):
+(adjust the schedule, path, and bucket):
 ```
-0 3 * * 1  GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json /path/to/Menu_Tracker/scripts/run_collection.sh >> /path/to/logfile 2>&1
+0 3 * * 1  GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json MENUTRACKER_GCS_BUCKET=gs://your-bucket-name /path/to/Menu_Tracker/scripts/run_collection.sh >> /path/to/logfile 2>&1
 ```
 
 ## Smoke testing your setup
@@ -244,6 +244,7 @@ under cron. Test the *exact* crontab line manually with a stripped
 environment before trusting the schedule:
 ```bash
 env -i GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
+  MENUTRACKER_GCS_BUCKET=gs://your-bucket-name \
   /path/to/Menu_Tracker/scripts/run_collection.sh
 echo "exit: $?"
 ```

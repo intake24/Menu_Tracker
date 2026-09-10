@@ -83,7 +83,7 @@ What a resume leaves behind, concretely:
 
 **User-Agent & Headers**: Scrapers use `fake_useragent` for rotating user agents and custom headers defined in helpers.py. This reduces bot-detection rate. Selenium-based scripts use `undetected_chromedriver` for additional evasion.
 
-**Error Handling**: Scrapers may fail if websites change. Check `documentation/SCRAPING_REPORT_*.md` files for known issues and site structure notes. Update site-specific selectors when layout changes.
+**Error Handling**: Scrapers may fail if websites change. Update site-specific selectors when layout changes; the commit that fixes it is the record of what changed and why.
 
 ## Common Tasks
 
@@ -93,10 +93,8 @@ What a resume leaves behind, concretely:
 3. If JavaScript-rendered or bot-protected: use Selenium with `setup_driver()` from helpers
 4. Ensure output CSV has all standard columns, save to `create_folder(name, folder)`
 5. Test with a small subsection before adding to `Master_Compile.py`
-6. If scraper becomes difficult to maintain, document site structure in `documentation/SCRAPING_REPORT_<chain>.md`
 
 **Debugging Site Changes**:
-- Check `documentation/` for existing scraping notes
 - Use `setup_driver()` headless=False to visually inspect what Selenium sees
 - Test URL patterns with `requests.get()` first before writing full scraper
 
@@ -115,18 +113,8 @@ What a resume leaves behind, concretely:
 - **Import Errors**: Scraper scripts live in `food-chains/` and import `helpers.py`/`define_collection_wave.py` from the repo root; running them via `Master_Compile.py` (or the Docker image, which sets `PYTHONPATH=/app`) resolves this automatically. Running a script directly needs `PYTHONPATH=<repo root>` set first.
 - **Chrome Driver Fails**: Check Chrome or Chromium is installed; if `undetected_chromedriver` fails, the helper falls back to Selenium Manager
 - **No Data Output**: Check that `folder` variable is set (run `define_collection_wave.py` first); verify URLs are accessible with manual requests/curl
-- **XPath/Selector Issues**: Websites change frequently. Test selectors in browser dev tools before hardcoding. Consider storing site HTML snapshots in `documentation/` for reference
+- **XPath/Selector Issues**: Websites change frequently. Test selectors in browser dev tools before hardcoding.
 
-## Agent skills
+## Issue tracking
 
-### Issue tracker
-
-Issues and PRDs use GitHub Issues in `intake24/Menu_Tracker`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Use the default five-role label vocabulary. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-This is a single-context repository. See `docs/agents/domain.md`.
+Issues and PRDs use GitHub Issues in `intake24/Menu_Tracker`.
