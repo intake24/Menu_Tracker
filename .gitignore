@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+env/
 build/
 develop-eggs/
 dist/
@@ -19,21 +20,13 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
 # Installer logs
+debug.log
 pip-log.txt
 pip-delete-this-directory.txt
 
@@ -47,86 +40,73 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
 .hypothesis/
 .pytest_cache/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
 # Jupyter Notebook
 .ipynb_checkpoints
-.ipynb
-
-# IPython
-profile_default/
-ipython_config.py
 
 # pyenv
 .python-version
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json
 
 # Pyre type checker
 .pyre/
 
+# VS Code
+.vscode/
+
+# MacOS
 .DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# PDF, Excel, and other data outputs
+*.pdf
+*.xlsx
+*.xls
+*.csv
+
+# Scrapy output
+Scrapy_spiders/*.csv
+Scrapy_spiders/*.json
+
+# Local environment
+.env
+*.env
+
+# Google Drive temporary files
+*.gsheet
+
+# Misc
+*.log
+
+# Ignore data collection folders
+/collections/
+*_collection*/
+*_repair_*/
+collections_backup_*.zip
+*.tgz
+
+# Ignore Notes and citation files
+Notes on data collection rounds.docx
+CITATION.cff
+
+.venv/
+.drivers/
+
+# Local scraper diagnostics
+evidence/
+
+# Codebase memory index (local, machine-specific)
+.codebase-memory/
+
+# Local docs, untracked
+docs/
+AGENTS.md
+CONTEXT.md

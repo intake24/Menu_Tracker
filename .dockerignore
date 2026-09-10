@@ -1,0 +1,14 @@
+.venv/
+.git/
+.jj/
+.codebase-memory/
+docs/
+evidence/
+/collections/
+*_collection_*
+!define_collection_wave.py
+!collection_archive.py
+collections_backup_*.zip
+__pycache__/
+*.pyc
+.drivers/

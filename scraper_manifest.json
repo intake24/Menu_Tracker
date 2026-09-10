@@ -1,0 +1,559 @@
+{
+  "scrapers": [
+    {
+      "script": "1_McDonalds.py",
+      "outputs": [
+        "1_McDonalds_*/mcdonalds_items.csv",
+        "1_McDonalds_*/item_*.json"
+      ]
+    },
+    {
+      "script": "2_Wetherspoons.py",
+      "outputs": [
+        "2_Wetherspoons_*/Wetherspoons_items.csv",
+        "2_Wetherspoons_*/pub_*.json"
+      ]
+    },
+    {
+      "script": "3_CostaCoffee_selenium.py",
+      "outputs": [
+        "3_CostaCoffee_*/costacoffee_nutrition.json",
+        "3_CostaCoffee_*/costacoffee_nutrition.csv"
+      ]
+    },
+    {
+      "script": "4_Greggs.py",
+      "outputs": [
+        "4_Greggs_*/greggs.json",
+        "4_Greggs_*/greggs_items.csv"
+      ]
+    },
+    {
+      "script": "5_KFC.py",
+      "outputs": [
+        "5_KFC_*/kfc_nutrition.json",
+        "5_KFC_*/kfc_nutrition.csv"
+      ]
+    },
+    {
+      "script": "6_Dominos.py",
+      "outputs": [
+        "6_Dominos_*/*.pdf"
+      ]
+    },
+    {
+      "script": "7_Starbucks.py",
+      "outputs": [
+        "7_Starbucks_*/*AllergenBook*.pdf"
+      ]
+    },
+    {
+      "script": "8_PizzaHut.py",
+      "outputs": [
+        "8_Pizzahut_*/*AIN*.pdf"
+      ]
+    },
+    {
+      "script": "9_Subway.py",
+      "outputs": [
+        "9_Subway_*/*NutritionalInformation*.pdf",
+        "9_Subway_*/*Allergen*Information*.pdf"
+      ]
+    },
+    {
+      "script": "10_Nandos.py",
+      "outputs": [
+        "10_Nandos_*/nandos_nutrition.json",
+        "10_Nandos_*/nandos_nutrition.csv"
+      ]
+    },
+    {
+      "script": "11_PizzaExpress.py",
+      "outputs": [
+        "11_PizzaExpress_*/*.pdf"
+      ]
+    },
+    {
+      "script": "12_BurgerKing.py",
+      "outputs": [
+        "12_BurgerKing_*/burgerking_nutrition.json",
+        "12_BurgerKing_*/burgerking_nutrition.csv"
+      ]
+    },
+    {
+      "script": "13_Pret.py",
+      "outputs": [
+        "13_Pret_*/pret_nutrition.json",
+        "13_Pret_*/pret_nutrition.csv"
+      ]
+    },
+    {
+      "script": "14_CaffeNero.py",
+      "outputs": [
+        "14_CaffeNero_*/caffenero_items.json",
+        "14_CaffeNero_*/caffenero_items.csv"
+      ]
+    },
+    {
+      "script": "15_Wagamama.py",
+      "outputs": [
+        "15_Wagamama_*/wagamama_nutrition.json",
+        "15_Wagamama_*/wagamama_nutrition.csv"
+      ]
+    },
+    {
+      "script": "16_Beefeater.py",
+      "outputs": [
+        "16_Beefeater_*/beefeater_nutrition.json",
+        "16_Beefeater_*/beefeater_nutrition.csv"
+      ]
+    },
+    {
+      "script": "18_Sizzling.py",
+      "outputs": [
+        "18_Sizzling_*/sizzling_nutrition.json",
+        "18_Sizzling_*/sizzling_nutrition.csv"
+      ]
+    },
+    {
+      "script": "19_EmberInns.py",
+      "outputs": [
+        "19_EmberInns_*/emberinns_nutrition.json",
+        "19_EmberInns_*/emberinns_nutrition.csv"
+      ]
+    },
+        {
+            "script": "20_ChefBrewer.py",
+            "outputs": [
+                "20_ChefBrewer_*/*.pdf"
+            ]
+        },
+        {
+            "script": "22_TobyCarvery.py",
+            "outputs": [
+                "22_TobyCarvery_*/tobycarvery_nutrition.json",
+                "22_TobyCarvery_*/tobycarvery_nutrition.csv"
+            ]
+        },
+        {
+            "script": "24_Zizzi.py",
+            "outputs": [
+                "24_Zizzi_*/zizzi_menu.json",
+                "24_Zizzi_*/zizzi_menu.csv",
+                "24_Zizzi_*/*.pdf"
+            ]
+        },
+        {
+            "script": "25_Ask.py",
+            "outputs": [
+                "25_Ask_*/ask_menu.json",
+                "25_Ask_*/ask_menu.csv",
+                "25_Ask_*/*.pdf"
+            ]
+        },
+        {
+            "script": "26_PapaJohns.py",
+            "outputs": [
+                "26_PapaJohns_*/*nutritional-information*.pdf"
+            ]
+        },
+        {
+            "script": "27_Yates.py",
+            "outputs": [
+                "27_Yates_*/yates_menu.json",
+                "27_Yates_*/yates_menu.csv"
+            ]
+        },
+        {
+            "script": "28_Yosushi.py",
+            "outputs": [
+                "28_Yosushi_*/yosushi_items.json",
+                "28_Yosushi_*/yosushi_items.csv"
+            ]
+        },
+        {
+            "script": "28_Yosushi_Tesco.py",
+            "outputs": [
+                "28_Yosushi_*/yosushi_tesco_items.json",
+                "28_Yosushi_*/yosushi_tesco_items.csv"
+            ]
+        },
+        {
+            "script": "29_AllBarOne.py",
+            "outputs": [
+                "29_AllBarOne_*/allbarone_nutrition.json",
+                "29_AllBarOne_*/allbarone_nutrition.csv"
+            ]
+        },
+        {
+            "script": "30_GBK.py",
+            "outputs": [
+                "30_GBK_*/30_GBK_items.json",
+                "30_GBK_*/30_GBK_items.csv"
+            ]
+        },
+        {
+            "script": "31_FlamingGrill.py",
+            "outputs": [
+                "31_FlamingGrill_*/*.pdf"
+            ]
+        },
+        {
+            "script": "33_Paul.py",
+            "outputs": [
+                "33_Paul_*/paul_items.json",
+                "33_Paul_*/paul_items.csv"
+            ]
+        },
+        {
+            "script": "34_Wimpy.py",
+            "outputs": [
+                "34_Wimpy_*/wimpy_items.json",
+                "34_Wimpy_*/wimpy_items.csv"
+            ]
+        },
+        {
+            "script": "35_krispyKreme.py",
+            "outputs": [
+                "35_KrispyKreme_*/*Allergen_Nutrition*.pdf"
+            ]
+        },
+        {
+            "script": "36_Bills.py",
+            "outputs": [
+                "36_Bills_*/bills_items.json",
+                "36_Bills_*/bills_items.csv"
+            ]
+        },
+        {
+            "script": "37_Walkabout.py",
+            "outputs": [
+                "37_Walkabout_*/walkabout_items.json",
+                "37_Walkabout_*/walkabout_items.csv"
+            ]
+        },
+        {
+            "script": "38_Itsu.py",
+            "outputs": [
+                "38_Itsu_*/itsu_nutrition.json",
+                "38_Itsu_*/itsu_nutrition.csv"
+            ]
+        },
+        {
+            "script": "39_BenJerry_selenium.py",
+            "outputs": [
+                "39_BenJerry_*/39_BenJerry_items.json",
+                "39_BenJerry_*/39_BenJerry_items.csv"
+            ]
+        },
+        {
+            "script": "41_Barburrito.py",
+            "outputs": [
+                "41_Barburrito_*/barburrito_items.json",
+                "41_Barburrito_*/barburrito_items.csv"
+            ]
+        },
+        {
+            "script": "42_Benugo.py",
+            "outputs": [
+                "42_Benugo_*/benugo_items.json",
+                "42_Benugo_*/benugo_items.csv"
+            ]
+        },
+        {
+            "script": "43_Boostjuice.py",
+            "outputs": [
+                "43_Boostjuice_*/boostjuice_items.json",
+                "43_Boostjuice_*/boostjuice_items.csv"
+            ]
+        },
+        {
+            "script": "44_Boswell.py",
+            "outputs": [
+                "44_Boswell_*/*Nutritional-Values-Food*.pdf",
+                "44_Boswell_*/*Nutritional-Values-Drinks*.pdf",
+                "44_Boswell_*/*ALLERGENS*.pdf"
+            ]
+        },
+        {
+            "script": "45_Brewhouse.py",
+            "outputs": [
+                "45_Brewhouse_*/*allergen_matrix*.pdf"
+            ]
+        },
+        {
+            "script": "46_Cineworld.py",
+            "outputs": [
+                "46_Cineworld_*/*Cineworld*Allergen*Nutritional*.pdf"
+            ]
+        },
+        {
+            "script": "47_Coffee1.py",
+            "outputs": [
+                "47_Coffee1_*/*Food*.pdf",
+                "47_Coffee1_*/*Beverage*.pdf"
+            ]
+        },
+        {
+            "script": "48_CommonRooms.py",
+            "outputs": [
+                "48_CommonRooms_*/commonrooms_nutrition.json",
+                "48_CommonRooms_*/commonrooms_nutrition.csv"
+            ]
+        },
+        {
+            "script": "53_Harvester.py",
+      "outputs": [
+        "53_Harvester_*/harvester_nutrition.json",
+        "53_Harvester_*/harvester_nutrition.csv"
+      ]
+    },
+    {
+      "script": "73_TopGolf.py",
+      "outputs": [
+        "73_TopGolf_*/topgolf_items.json",
+        "73_TopGolf_*/topgolf_items.csv",
+        "73_TopGolf_*/*.pdf"
+      ]
+    },
+    {
+      "script": "51_FarmhouseInns.py",
+      "outputs": [
+        "51_FarmhouseInns_*/*.pdf"
+      ]
+    },
+    {
+      "script": "54_HungryHorse.py",
+      "outputs": [
+        "54_HungryHorse_*/*.pdf"
+      ]
+    },
+    {
+      "script": "55_JoeJuice.py",
+      "outputs": [
+        "55_JoeJuice_*/joejuice_items.json",
+        "55_JoeJuice_*/joejuice_items.csv"
+      ]
+    },
+    {
+      "script": "56_Leon.py",
+      "outputs": [
+        "56_Leon_*/leon_items.json",
+        "56_Leon_*/leon_items.csv"
+      ]
+    },
+    {
+      "script": "57_GreeneKing.py",
+      "outputs": [
+        "57_GreeneKing_*/*.pdf"
+      ]
+    },
+    {
+      "script": "58_Vue.py",
+      "outputs": [
+        "58_Vue_*/vue_pdfs.json",
+        "58_Vue_*/vue_pdfs.csv"
+      ]
+    },
+    {
+      "script": "60_Marstons.py",
+      "outputs": [
+        "60_Marstons_*/marstons_items.json",
+        "60_Marstons_*/marstons_items.csv"
+      ]
+    },
+    {
+      "script": "61_MorrisonsCafe.py",
+      "outputs": [
+        "61_MorrisonsCafe_*/morrisons_cafe_items.json",
+        "61_MorrisonsCafe_*/morrisons_cafe_items.csv"
+      ]
+    },
+    {
+      "script": "63_Pieminister.py",
+      "outputs": [
+        "63_Pieminister_*/pieminister_items.json",
+        "63_Pieminister_*/pieminister_items.csv"
+      ]
+    },
+    {
+      "script": "64_Pure.py",
+      "outputs": [
+        "64_Pure_*/pure_items.csv"
+      ]
+    },
+    {
+      "script": "67_StonehousePizza.py",
+      "outputs": [
+        "67_StonehousePizza_*/stonehousepizza_nutrition.json",
+        "67_StonehousePizza_*/stonehousepizza_nutrition.csv"
+      ]
+    },
+    {
+      "script": "68_TankPaddle.py",
+      "outputs": [
+        "68_TankPaddle_*/tankpaddle_items.json",
+        "68_TankPaddle_*/tankpaddle_items.csv"
+      ]
+    },
+    {
+      "script": "69_TescoCafe.py",
+      "outputs": [
+        "69_TescoCafe_*/tescocafe_items.json",
+        "69_TescoCafe_*/tescocafe_items.csv",
+        "69_TescoCafe_*/*Allergen*.pdf"
+      ]
+    },
+    {
+      "script": "70_Cornish.py",
+      "outputs": [
+        "70_Cornish_*/cornish_items.json",
+        "70_Cornish_*/cornish_items.csv",
+        "70_Cornish_*/*Allergen*.pdf"
+      ]
+    },
+    {
+      "script": "71_ThomasBaker.py",
+      "outputs": [
+        "71_ThomasBaker_*/thomasbaker_items.json",
+        "71_ThomasBaker_*/thomasbaker_items.csv"
+      ]
+    },
+    {
+      "script": "72_TimHortons.py",
+      "outputs": [
+        "72_TimHortons_*/timhortons_items.json",
+        "72_TimHortons_*/timhortons_items.csv"
+      ]
+    },
+    {
+      "script": "75_VintageInns.py",
+      "outputs": [
+        "75_VintageInns_*/vintageinns_nutrition.json",
+        "75_VintageInns_*/vintageinns_nutrition.csv"
+      ]
+    },
+    {
+      "script": "76_Wasabi.py",
+      "outputs": [
+        "76_Wasabi_*/*Nutritional*.pdf"
+      ]
+    },
+    {
+      "script": "78_BirdsBakery.py",
+      "outputs": [
+        "78_BirdsBakery_*/birdsbakery_items.json",
+        "78_BirdsBakery_*/birdsbakery_items.csv"
+      ]
+    },
+    {
+      "script": "79_Tortilla.py",
+      "outputs": [
+        "79_Tortilla_*/*nutrition-guide*.pdf"
+      ]
+    },
+    {
+      "script": "80_tossed.py",
+      "outputs": [
+        "80_Tossed_*/tossed_nutrition.json",
+        "80_Tossed_*/tossed_nutrition.csv"
+      ]
+    },
+    {
+      "script": "81_BellaItalian.py",
+      "outputs": [
+        "81_BellaItalian_*/bella_italia_items.json",
+        "81_BellaItalian_*/bella_italia_items.csv"
+      ]
+    },
+    {
+      "script": "82_CafeRouge.py",
+      "outputs": [
+        "82_CafeRouge_*/cafe_rouge_items.json",
+        "82_CafeRouge_*/cafe_rouge_items.csv"
+      ]
+    },
+    {
+      "script": "83_TacoBell.py",
+      "outputs": [
+        "83_TacoBell_*/taco_bell_items.json",
+        "83_TacoBell_*/taco_bell_items.csv"
+      ]
+    },
+    {
+      "script": "84_Coco.py",
+      "outputs": [
+        "84_Coco_*/coco_di_mama_items.json",
+        "84_Coco_*/coco_di_mama_items.csv"
+      ]
+    },
+    {
+      "script": "85_RealGreek.py",
+      "outputs": [
+        "85_RealGreek_*/real_greek_items.json",
+        "85_RealGreek_*/real_greek_items.csv",
+        "85_RealGreek_*/*Allergen*.pdf"
+      ]
+    },
+    {
+      "script": "86_HonestBurger.py",
+      "outputs": [
+        "86_HonestBurger_*/honest_burgers_items.json",
+        "86_HonestBurger_*/honest_burgers_items.csv"
+      ]
+    },
+    {
+      "script": "89_Browns.py",
+      "outputs": [
+        "89_Browns_*/browns_nutrition.json",
+        "89_Browns_*/browns_nutrition.csv"
+      ]
+    },
+    {
+      "script": "90_ONeills.py",
+      "outputs": [
+        "90_ONeills_*/oneills_nutrition.json",
+        "90_ONeills_*/oneills_nutrition.csv"
+      ]
+    },
+    {
+      "script": "91_Nicholsons.py",
+      "outputs": [
+        "91_Nicholsons_*/nicholsons_nutrition.json",
+        "91_Nicholsons_*/nicholsons_nutrition.csv"
+      ]
+    },
+    {
+      "script": "52_FiveGuys.py",
+      "outputs": [
+        "52_FiveGuys_*/*.pdf"
+      ]
+    },
+    {
+      "script": "59_Odeon.py",
+      "outputs": [
+        "59_Odeon_*/*uk-version.pdf"
+      ]
+    },
+    {
+      "script": "62_Pho.py",
+      "outputs": [
+        "62_Pho_*/*Allergen-Guide*.pdf",
+        "62_Pho_*/*Nutritional-Guidelines*.pdf"
+      ]
+    },
+    {
+      "script": "66_SohoCoffee.py",
+      "outputs": [
+        "66_SohoCoffee_*/*Allergen-Matrix*.pdf",
+        "66_SohoCoffee_*/*Nutritional-Matrix*.pdf"
+      ]
+    },
+    {
+      "script": "88_ChickenCottage.py",
+      "outputs": [
+        "88_ChickenCottage_*/allergen_chart_ocr.json"
+      ]
+    }
+  ]
+}
