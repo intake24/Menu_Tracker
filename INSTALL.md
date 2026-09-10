@@ -136,8 +136,12 @@ Output lands under `collections/` (auto-created, gitignored).
 ## GCS credentials for `--archive-gcs`
 
 1. Ask your GCP project admin for a service-account key with write access to
-   the target bucket (never grant more than `Storage Object Creator` on that
-   one bucket).
+   the target bucket, scoped to that bucket only (not project-wide):
+   `roles/storage.objectAdmin`. `Storage Object Creator` alone isn't enough —
+   a resumed wave's archive upload deliberately overwrites its own earlier,
+   less-complete upload at the same path (see `--resume` above), and
+   replacing an existing object needs `storage.objects.delete` as well as
+   `create`.
 2. Copy the key file onto the server; restrict its permissions:
    ```bash
    chmod 600 /path/to/service-account.json
@@ -229,7 +233,7 @@ gcloud storage ls "gs://<your-bucket>/archives/smoke_test_gcs.zip"
 gcloud storage rm "gs://<your-bucket>/archives/smoke_test_gcs.zip"
 ```
 A permissions error here means the service account needs
-`Storage Object Creator` on that bucket — that's a GCS/IAM issue, not a
+`roles/storage.objectAdmin` on that bucket — that's a GCS/IAM issue, not a
 scraper issue, so don't start debugging Chrome or cron based on this failure.
 
 ### 4. Crontab entry
