@@ -1,3 +1,9 @@
+"""OBSOLETE: Table Table closed (Whitbread folded it into Premier Inn
+dining). https://www.tabletable.co.uk/en-gb/allergy-nutrition now 301s to
+the homepage, titled "Table Table is now closed. Dining continues for
+Premier Inn Guests" (confirmed 2026-09-10). Removed from scraper_manifest.json.
+"""
+
 import json
 import os
 import re

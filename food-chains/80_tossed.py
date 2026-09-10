@@ -74,7 +74,7 @@ def extract_nutrition_from_modal(driver):
     nutrition = {}
     try:
         # Wait for modal to be visible
-        modal_selector = ".ReactModal__Content"
+        modal_selector = "[data-test='modal-content']"
         WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, modal_selector))
         )
@@ -149,7 +149,7 @@ def extract_nutrition_from_modal(driver):
 
         # Close the modal
         try:
-            close_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label^='Close']")
+            close_btn = driver.find_element(By.CSS_SELECTOR, "[data-test='close-modal-button']")
             driver.execute_script("arguments[0].click();", close_btn)
             WebDriverWait(driver, 5).until(EC.invisibility_of_element_located((By.CSS_SELECTOR, modal_selector)))
         except:
@@ -172,28 +172,41 @@ def scrape_category_items(driver, category):
     
     records = []
     
-    # Find all "More details." buttons
-    details_buttons = driver.find_elements(By.CSS_SELECTOR, "button[aria-label='More details.']")
+    # Find all "More details." info buttons -- the site now marks the icon
+    # itself (an inline svg) with data-test="Info" rather than putting an
+    # aria-label on the button; select the button ancestor of that icon.
+    details_buttons = driver.find_elements(By.CSS_SELECTOR, "button:has(svg[data-test='Info'])")
     print(f"  Found {len(details_buttons)} items with details.")
     
     for i in range(len(details_buttons)):
         # Re-fetch buttons list to avoid stale element exceptions after modal closes
-        current_buttons = driver.find_elements(By.CSS_SELECTOR, "button[aria-label='More details.']")
+        current_buttons = driver.find_elements(By.CSS_SELECTOR, "button:has(svg[data-test='Info'])")
         if i >= len(current_buttons): break
         
         btn = current_buttons[i]
-        
+
+        # The redesigned nutrition modal doesn't show the item name anywhere
+        # in its own DOM -- it starts straight at the description. Capture
+        # the name from the card (data-test="item-name") before opening it.
+        card_name = driver.execute_script(
+            "var card = arguments[0].closest('[data-test=\"card\"]');"
+            "var el = card && card.querySelector('[data-test=\"item-name\"]');"
+            "return el ? el.textContent.trim() : null;",
+            btn,
+        )
+
         # Scroll to button to ensure it's clickable
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
         time.sleep(0.5)
-        
+
         try:
             driver.execute_script("arguments[0].click();", btn)
         except:
             continue
-            
+
         name, desc, allergens, nutrition = extract_nutrition_from_modal(driver)
-        
+        name = card_name or name
+
         if name:
             # Ensure nutrition is a dict even if extraction partially failed
             nut = nutrition if isinstance(nutrition, dict) else {}

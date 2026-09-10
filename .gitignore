@@ -91,6 +91,7 @@ Scrapy_spiders/*.json
 *_collection*/
 *_repair_*/
 collections_backup_*.zip
+*.tgz
 
 # Ignore Notes and citation files
 Notes on data collection rounds.docx

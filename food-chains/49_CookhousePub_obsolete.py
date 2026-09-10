@@ -1,4 +1,10 @@
-"""Collect Cookhouse & Pub's live allergen and nutrition cards."""
+"""OBSOLETE: Cookhouse + Pub closed (Whitbread folded it into Premier Inn
+dining). https://www.cookhouseandpub.co.uk/en-gb/allergy-nutrition now 301s
+to the homepage, titled "Cookhouse + Pub is now closed. Dining continues for
+Premier Inn Guests" (confirmed 2026-09-10). Removed from scraper_manifest.json.
+
+Collect Cookhouse & Pub's live allergen and nutrition cards.
+"""
 
 import json
 import re

@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo root, for helpers/define_collection_wave
 
-spec = importlib.util.spec_from_file_location('cookhouse', Path(__file__).with_name('49_CookhousePub.py'))
+spec = importlib.util.spec_from_file_location('cookhouse', Path(__file__).with_name('49_CookhousePub_obsolete.py'))
 cookhouse = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cookhouse)
 

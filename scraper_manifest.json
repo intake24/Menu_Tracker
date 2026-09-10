@@ -109,13 +109,6 @@
       ]
     },
     {
-      "script": "17_BrewersFayre.py",
-      "outputs": [
-        "17_BrewersFayre_*/brewersfayre_nutrition.json",
-        "17_BrewersFayre_*/brewersfayre_nutrition.csv"
-      ]
-    },
-    {
       "script": "18_Sizzling.py",
       "outputs": [
         "18_Sizzling_*/sizzling_nutrition.json",
@@ -133,13 +126,6 @@
             "script": "20_ChefBrewer.py",
             "outputs": [
                 "20_ChefBrewer_*/*.pdf"
-            ]
-        },
-        {
-            "script": "21_TableTable.py",
-            "outputs": [
-                "21_TableTable_*/tabletable_nutrition.json",
-                "21_TableTable_*/tabletable_nutrition.csv"
             ]
         },
         {
@@ -313,13 +299,6 @@
             "outputs": [
                 "48_CommonRooms_*/commonrooms_nutrition.json",
                 "48_CommonRooms_*/commonrooms_nutrition.csv"
-            ]
-        },
-        {
-            "script": "49_CookhousePub.py",
-            "outputs": [
-                "49_CookhousePub_*/cookhousepub_nutrition.json",
-                "49_CookhousePub_*/cookhousepub_nutrition.csv"
             ]
         },
         {
