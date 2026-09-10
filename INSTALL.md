@@ -2,7 +2,9 @@
 
 Two ways to run the scrapers: **Docker** (recommended — bundles Chromium and
 every shared library it needs, no host packages touched) or a **native
-virtualenv** (needed if Docker isn't available on the box).
+virtualenv** (needed if Docker isn't available on the box). To run chains
+interactively from `menutracker.ipynb`, see
+[Option C](#option-c-jupyter-notebook-run-locally).
 
 ## Option A: Docker (recommended)
 
@@ -132,6 +134,64 @@ python Master_Compile.py my_test_run 1_McDonalds.py
 python Master_Compile.py "$(date -u +%Y-%m-%d)_collection"   # every manifest entry
 ```
 Output lands under `collections/` (auto-created, gitignored).
+
+## Option C: Jupyter notebook, run locally
+
+`menutracker.ipynb` runs the chains one cell at a time, which is handy for
+testing or re-running a single chain. It builds on the native setup in
+[Option B](#option-b-native-virtualenv) (venv, dependencies, local Chrome), so
+complete that first.
+
+### Start Jupyter
+
+`jupyterlab` isn't in `requirements.txt`; install it into the same venv, then
+launch from the **repo root**. `%run food-chains/...` and `import helpers` both
+resolve relative to the working directory, so starting Jupyter anywhere else
+breaks them.
+```bash
+source .venv/bin/activate
+pip install jupyterlab
+jupyter lab menutracker.ipynb
+```
+
+### Skip the Colab-only cells
+
+The notebook's header says to skip some steps when running in your own
+environment, but several don't no-op gracefully locally; they fail or touch
+paths outside the repo. Skip these:
+
+| Cell (by content) | Why skip |
+|---|---|
+| `from google.colab import drive` | `ModuleNotFoundError` locally; the `try` only wraps `drive.mount`, not the import. |
+| `%mkdir` / `%cd "/content/drive/MyDrive/menutracker"` | Tries to create `/content/...`. |
+| Backup of the old `Menu_Tracker` folder | Harmless no-op, but pointless. |
+| `git clone ... Menu_Tracker` | Clones into your working directory, then its `assert` on `/content/drive/...` fails. |
+| `apt-get install google-chrome-stable` | Needs root; use the Chrome you installed above. |
+| `%cd "/content/drive/MyDrive/menutracker/Menu_Tracker"` | Fails; you're already in the repo root. |
+| `from google.colab import files` (zip download, near the end) | `ModuleNotFoundError`; your output is already in `collections/`. |
+
+### Run order
+
+1. *(Optional)* the `%pip install -r requirements.txt` cell, if the venv isn't
+   already set up.
+2. The logging-diagnostics cell, then the imports cell
+   (`from define_collection_wave import ...`).
+3. The `create_collection("...")` cell. **Run this before any scraper cell**,
+   because the scripts read the active collection folder from it. Change the
+   name each wave; output lands in `collections/<name>/`.
+4. Whichever chain cells you want. Each is a plain `%run food-chains/<n>.py`
+   (or a direct helper call).
+
+### Notes
+
+- Selenium-based chains need local Chrome and can fail behind a VPN or
+  proxy; see the per-chain remarks in the notebook.
+- A chain only counts as collected if files appear under
+  `collections/<name>/<chain>_<date>/`. A cell that finishes without
+  an exception may still have produced nothing (e.g. the site was down), so
+  check the folder.
+- For scheduled or unattended runs, use `Master_Compile.py` (Options A/B). It
+  validates outputs and records evidence; the notebook does neither.
 
 ## GCS credentials for `--archive-gcs`
 
