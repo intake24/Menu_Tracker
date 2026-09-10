@@ -9,7 +9,7 @@ run_id="$(date -u +%Y-%m-%d_%H%MZ_weekly)"
 
 mkdir -p "${repo_root}/collections"
 
-exec flock -n "/tmp/menutracker-${USER}.lock" \
+exec flock -n "/tmp/menutracker-$(id -un).lock" \
   docker run --rm \
   --user "$(id -u):$(id -g)" \
   -v "${repo_root}/collections:/app/collections" \
