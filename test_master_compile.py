@@ -48,6 +48,17 @@ class MasterCompileTests(unittest.TestCase):
         )
 
     @patch("Master_Compile.resolve_collection")
+    def test_resume_allows_archive_gcs_without_explicit_evidence_dir(self, resolve_collection):
+        resolve_collection.return_value = "2026-09-09_1851Z_weekly_collection"
+        args = Master_Compile.parse_args(
+            ["--resume", "--archive-gcs", "gs://intake24-menutracker-collections"]
+        )
+        self.assertEqual(
+            Master_Compile.ROOT / "collections" / "2026-09-09_1851Z_weekly_evidence",
+            args.evidence_dir,
+        )
+
+    @patch("Master_Compile.resolve_collection")
     def test_resume_with_collection_and_scripts_restricts_correctly(self, resolve_collection):
         resolve_collection.return_value = "Sep_collection_2026"
         args = Master_Compile.parse_args(

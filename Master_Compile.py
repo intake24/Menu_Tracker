@@ -69,8 +69,6 @@ def parse_args(argv=None):
         parser.error("--workers must be at least 1")
     if args.timeout < 0:
         parser.error("--timeout must be at least 0")
-    if args.archive_gcs and args.evidence_dir is None:
-        parser.error("--archive-gcs requires a run-specific --evidence-dir")
 
     if args.resume:
         target = resolve_collection(args.collection)
@@ -80,6 +78,13 @@ def parse_args(argv=None):
         args.collection = target
     elif not args.collection:
         parser.error("collection is required unless --resume is used")
+
+    # --resume derives a run-specific --evidence-dir on its own (the
+    # collection's sibling *_evidence folder), so it satisfies the same
+    # safety requirement --archive-gcs normally needs an explicit flag for.
+    explicit_evidence_dir = args.evidence_dir is not None
+    if args.archive_gcs and not explicit_evidence_dir and not args.resume:
+        parser.error("--archive-gcs requires a run-specific --evidence-dir (or use --resume)")
 
     if args.evidence_dir is None:
         name = args.collection
