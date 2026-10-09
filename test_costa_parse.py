@@ -60,5 +60,30 @@ class CostaTableParsingTests(unittest.TestCase):
         self.assertEqual(costa.parse_allergen_rows([]), {})
 
 
+class CostaWedgedBrowserTests(unittest.TestCase):
+    def test_failed_product_is_retried_in_a_fresh_browser(self):
+        from unittest.mock import MagicMock
+        wedged, fresh = MagicMock(name="wedged"), MagicMock(name="fresh")
+        seen = []
+
+        def extract(driver, url, category):
+            seen.append(driver)
+            if driver is wedged:
+                raise RuntimeError("Timed out receiving message from renderer: 60.000")
+            return {"Product_Name": "Matcha Latte"}
+
+        with patch.object(costa, "setup_driver", side_effect=[wedged, fresh]), \
+                patch.object(costa, "safe_get", side_effect=lambda d, *a, **k: d), \
+                patch.object(costa, "try_click_accept_cookies"), \
+                patch.object(costa, "sleep"), \
+                patch.object(costa, "collect_product_urls", return_value={"u1": "Drinks"}), \
+                patch.object(costa, "extract_product", side_effect=extract):
+            items = costa.scrape_costa_menu()
+
+        self.assertEqual(items, [{"Product_Name": "Matcha Latte"}])
+        self.assertEqual(seen, [wedged, fresh])
+        wedged.quit.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

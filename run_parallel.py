@@ -272,8 +272,12 @@ def run_scripts_parallel(
                 returncode, stdout, stderr = process.returncode, process.stdout, process.stderr
             except subprocess.TimeoutExpired as error:
                 returncode = -997
-                stdout = error.stdout or ""
-                stderr = (error.stderr or "") + f"\nTimed out after {timeout_seconds}s"
+                # TimeoutExpired carries bytes even when text=True was requested.
+                stdout, stderr = (
+                    out.decode(errors="replace") if isinstance(out, bytes) else (out or "")
+                    for out in (error.stdout, error.stderr)
+                )
+                stderr += f"\nTimed out after {timeout_seconds}s"
             except OSError as error:
                 returncode, stdout, stderr = -998, "", str(error)
 

@@ -156,7 +156,7 @@ class RunnerTests(unittest.TestCase):
             root = Path(directory)
             collection = root / "collection"
             collection.mkdir()
-            (root / "slow.py").write_text("import time\ntime.sleep(5)\n", encoding="utf-8")
+            (root / "slow.py").write_text("import sys, time\nprint('partial out', flush=True)\nprint('partial err', file=sys.stderr, flush=True)\ntime.sleep(5)\n", encoding="utf-8")
             manifest = root / "manifest.json"
             manifest.write_text(
                 json.dumps({"scrapers": [{"script": "slow.py", "outputs": ["nope.pdf"]}]}),
@@ -172,6 +172,9 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(-997, result["returncode"])
             self.assertLess(result["seconds"], 4, "should be killed near the 1s timeout, not run the full 5s sleep")
             self.assertIn("Timed out after 1s", result["stderr"])
+            # Partial output captured before the kill must survive (it arrives as bytes).
+            self.assertIn("partial err", result["stderr"])
+            self.assertIn("partial out", result["stdout"])
 
 
 if __name__ == "__main__":

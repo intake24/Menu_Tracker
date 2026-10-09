@@ -186,8 +186,7 @@ def _page_tables(driver):
 
 
 def extract_product(driver, url: str, category: str) -> Optional[Dict]:
-    """Load one product page and return its record, or None if it has no name."""
-    driver = safe_get(driver, url)
+    """Return the record for the product page already loaded in driver, or None if it has no name."""
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
     name = clean_text(driver.find_element(By.TAG_NAME, "h1").text.strip())
     if not name:
@@ -216,6 +215,20 @@ def extract_product(driver, url: str, category: str) -> Optional[Dict]:
 # Main orchestration
 # ---------------------------------------------------------------------------
 
+def _fresh_driver(old):
+    """Replace a wedged browser with a new one that has the cookie banner dismissed."""
+    try:
+        old.quit()
+    except Exception:
+        pass
+    driver = setup_driver()
+    driver.set_page_load_timeout(60)
+    driver = safe_get(driver, MENU_URL)
+    sleep(WAIT_LONG)
+    try_click_accept_cookies(driver)
+    return driver
+
+
 def scrape_costa_menu() -> List[Dict]:
     """Launch browser, scrape every product page, return all records."""
     logger.info("Launching browser…")
@@ -235,14 +248,23 @@ def scrape_costa_menu() -> List[Dict]:
         logger.info(f"Found {len(products)} product pages")
 
         for idx, (url, category) in enumerate(products.items(), 1):
-            try:
-                record = extract_product(driver, url, category)
-                if record:
-                    items.append(record)
-                    logger.info(f"[{idx}/{len(products)}] {record['Product_Name']}")
-            except Exception as exc:
-                failed.append(url)
-                logger.error(f"[{idx}/{len(products)}] {url}: {exc}")
+            for attempt in (1, 2):
+                try:
+                    driver = safe_get(driver, url)
+                    record = extract_product(driver, url, category)
+                    if record:
+                        items.append(record)
+                        logger.info(f"[{idx}/{len(products)}] {record['Product_Name']}")
+                    break
+                except Exception as exc:
+                    # A wedged renderer ("Timed out receiving message from renderer")
+                    # makes every later page crawl, so retry once in a fresh browser.
+                    if attempt == 1:
+                        logger.warning(f"[{idx}/{len(products)}] {url}: {exc}; restarting browser")
+                        driver = _fresh_driver(driver)
+                    else:
+                        failed.append(url)
+                        logger.error(f"[{idx}/{len(products)}] {url}: {exc}")
     finally:
         try:
             driver.quit()

@@ -3,6 +3,16 @@
 Newest first. One section per day; one line per food chain touched.
 Add an entry here whenever a scraper, the manifest or a shared helper changes.
 
+## 2026-10-10
+
+Found by the first manual run of the 2026-10-09 fixes on dm-build.
+
+- Runner (`run_parallel.py`): a script timeout crashed the whole run with `TypeError: can't concat str to bytes`
+  (Python returns partial output as bytes on timeout), so no evidence or summary was written. Now decoded.
+- 3 Costa Coffee: Chrome's renderer sometimes wedges mid-run ("Timed out receiving message from renderer");
+  the old loop kept using that browser and each later page took about 3 minutes, so runs hit the 2400 s timeout.
+  A failed product is now retried once in a fresh browser. Verified through `Master_Compile` on dm-build: 137 products in 630 s.
+
 ## 2026-10-09
 
 Triage of the 2026-10-05 weekly run (72 of 81 scripts passed, 9 failed) plus
