@@ -24,6 +24,8 @@ from selenium.webdriver.chrome.options import Options
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, WebDriverException
+from urllib3.exceptions import HTTPError as Urllib3Error
 
 
 import define_collection_wave as dcw
@@ -882,7 +884,8 @@ def safe_get(driver, url: str, wait_locator=None, wait_timeout: int = 6) -> 'Web
     try:
         _navigate(driver)
         return driver
-    except WebDriverException as e:
+    except (WebDriverException, Urllib3Error) as e:
+        # A hung chromedriver raises urllib3's ReadTimeoutError directly, not a WebDriverException.
         msg = str(e)
         if ("Read timed out" in msg) or ("HTTPConnectionPool" in msg) or ("ERR_CONNECTION" in msg):
             # Restart the driver and retry once
