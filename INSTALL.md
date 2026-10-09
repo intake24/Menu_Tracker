@@ -182,6 +182,21 @@ paths outside the repo. Skip these:
 4. Whichever chain cells you want. Each is a plain `%run food-chains/<n>.py`
    (or a direct helper call).
 
+### Keep run output out of commits
+
+Never commit the notebook with cell outputs or execution counts. Before
+committing after a local run, clear them in Jupyter (Edit > Clear Outputs of
+All Cells), or strip them from the command line:
+```bash
+pip install nbstripout
+nbstripout menutracker.ipynb
+```
+`test_notebook_clean.py` fails if outputs, execution counts or editor markup
+are left in the notebook, so `python -m unittest discover` catches this under
+any VCS. Git users can also install the hook in `.pre-commit-config.yaml`
+(`pip install pre-commit && pre-commit install`); `jj` does not run git
+hooks, so rely on the test there.
+
 ### Notes
 
 - Selenium-based chains need local Chrome and can fail behind a VPN or
