@@ -1,15 +1,15 @@
-import json
+"""Download Farmhouse Inns' current allergen guide from a representative pub page.
 
-import requests
+The old hardcoded sitecorecontenthub content ID is tied to one menu season;
+discover the current link from a stable pub page instead.
+"""
 
-from define_collection_wave import folder
-from helpers import create_folder, PDFDownloader
+from helpers import combo_PDFDownload
 
 
-fg_path = create_folder('51_FarmhouseInns', folder)
-print(fg_path)
-
-url_fordownload = 'https://gkbr-p-001.sitecorecontenthub.cloud/api/public/content/1bbe74a89dd140b2a5f2fb881731b286?v=b99b8d6e'
-print("Downloading:", url_fordownload)
-filePath = fg_path + '/' + url_fordownload.split('/')[-1].replace('-','_').replace('?','')+'.pdf'
-PDFDownloader(url_fordownload, filePath=filePath)
+if __name__ == "__main__":
+    combo_PDFDownload(
+        "51_FarmhouseInns",
+        "https://www.farmhouseinns.co.uk/pubs/bedfordshire/maypole-farm/allergens",
+        keyword="sitecorecontenthub",
+    )
