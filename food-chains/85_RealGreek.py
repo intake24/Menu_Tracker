@@ -146,7 +146,8 @@ def main():
     try:
         doc = fetch_tree(URL)
         recs = parse_static(doc)
-    except Exception:
+    except Exception as exc:
+        print(f'Static fetch/parse failed ({type(exc).__name__}: {exc}); falling back to Selenium')
         recs = []
 
     if not recs:
@@ -160,9 +161,13 @@ def main():
                 pass
             tree = html.fromstring(driver.page_source)
             recs = parse_static(tree)
+            if not recs:
+                print(f'Selenium fallback parsed 0 items; page title={driver.title!r}, length={len(driver.page_source)}')
         finally:
             driver.quit()
 
+    if not recs:
+        raise RuntimeError(f'No Real Greek menu items parsed from {URL}; the site layout changed or this host was served a different page')
     save_outputs(recs)
 
     # The scraped menu doesn't carry per-item allergen data; the current

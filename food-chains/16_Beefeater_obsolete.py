@@ -1,3 +1,8 @@
+"""OBSOLETE: Beefeater closed (Whitbread folded it into Premier Inn dining).
+https://www.beefeater.co.uk/en-gb/allergy-nutrition now 301s to /en-gb and then
+to the Premier Inn homepage (confirmed 2026-10-09; the 2026-10-05 weekly run
+found 0 menu links). Removed from scraper_manifest.json.
+"""
 import json
 import os
 import re

@@ -102,13 +102,6 @@
       ]
     },
     {
-      "script": "16_Beefeater.py",
-      "outputs": [
-        "16_Beefeater_*/beefeater_nutrition.json",
-        "16_Beefeater_*/beefeater_nutrition.csv"
-      ]
-    },
-    {
       "script": "18_Sizzling.py",
       "outputs": [
         "18_Sizzling_*/sizzling_nutrition.json",
@@ -139,8 +132,7 @@
             "script": "24_Zizzi.py",
             "outputs": [
                 "24_Zizzi_*/zizzi_menu.json",
-                "24_Zizzi_*/zizzi_menu.csv",
-                "24_Zizzi_*/*.pdf"
+                "24_Zizzi_*/zizzi_menu.csv"
             ]
         },
         {
@@ -284,7 +276,7 @@
         {
             "script": "46_Cineworld.py",
             "outputs": [
-                "46_Cineworld_*/*Cineworld*Allergen*Nutritional*.pdf"
+                "46_Cineworld_*/*.pdf"
             ]
         },
         {
@@ -292,13 +284,6 @@
             "outputs": [
                 "47_Coffee1_*/*Food*.pdf",
                 "47_Coffee1_*/*Beverage*.pdf"
-            ]
-        },
-        {
-            "script": "48_CommonRooms.py",
-            "outputs": [
-                "48_CommonRooms_*/commonrooms_nutrition.json",
-                "48_CommonRooms_*/commonrooms_nutrition.csv"
             ]
         },
         {

@@ -5,6 +5,7 @@ session gets past it, so this uses Selenium purely to fetch the page.
 """
 
 import re
+import time
 from urllib.parse import urljoin
 
 from define_collection_wave import folder
@@ -27,7 +28,12 @@ if __name__ == "__main__":
     driver = setup_driver()
     try:
         driver.get(LANDING_URL)
-        pdf_urls = discover_uk_pdf_urls(driver.page_source, LANDING_URL)
+        # The PDF links render a few seconds after load, so poll rather than read once.
+        for _ in range(30):
+            pdf_urls = discover_uk_pdf_urls(driver.page_source, LANDING_URL)
+            if pdf_urls:
+                break
+            time.sleep(1)
     finally:
         driver.quit()
 
