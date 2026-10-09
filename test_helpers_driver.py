@@ -2,6 +2,8 @@ import subprocess
 import unittest
 from unittest.mock import MagicMock, patch
 
+from urllib3.exceptions import ReadTimeoutError
+
 from helpers import get_chrome_binary_and_version, safe_get
 
 
@@ -24,6 +26,19 @@ class ChromeDetectionTests(unittest.TestCase):
         driver.get.assert_called_once_with("https://example.com")
         driver.quit.assert_not_called()
         setup_driver.assert_not_called()
+
+    @patch("helpers.try_click_accept_cookies")
+    @patch("helpers.set_driver_timeouts")
+    @patch("helpers.setup_driver")
+    def test_safe_get_restarts_when_chromedriver_hangs(self, setup_driver, *_):
+        # A hung chromedriver surfaces as a raw urllib3 ReadTimeoutError, not a WebDriverException.
+        hung = MagicMock()
+        hung.get.side_effect = ReadTimeoutError(None, "/session", "Read timed out. (read timeout=120)")
+        fresh = MagicMock()
+        setup_driver.return_value = fresh
+        self.assertIs(safe_get(hung, "https://example.com"), fresh)
+        hung.quit.assert_called_once()
+        fresh.get.assert_called_once_with("https://example.com")
 
 
 if __name__ == "__main__":
