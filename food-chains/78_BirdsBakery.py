@@ -8,7 +8,7 @@ import pandas as pd
 from lxml import html
 
 from define_collection_wave import folder
-from helpers import create_folder, headers, setup_driver, clean_text
+from helpers import create_folder, headers, setup_driver, clean_text, safe_get
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -49,7 +49,7 @@ def discover_item_links() -> List[str]:
     # Selenium fallback
     driver = setup_driver()
     try:
-        driver.get(START_URL)
+        driver = safe_get(driver, START_URL)
         WebDriverWait(driver, 20).until(
             EC.presence_of_all_elements_located((
                 By.XPATH,

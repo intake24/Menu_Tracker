@@ -13,6 +13,8 @@ from helpers import create_folder, setup_driver
 
 BASE_URL = 'https://www.tesco.com/zones/tesco-cafe'
 REST_NAME = 'Tesco Cafe'
+BLOCK_RETRIES = 3
+BLOCK_BACKOFF_SECONDS = 30
 
 # Outputs
 path_out = create_folder('69_TescoCafe', folder)
@@ -133,6 +135,20 @@ def download_allergen_pdf(driver) -> None:
 
 
 def crawl_tescocafe() -> List[Dict]:
+    """Crawl with a fresh browser per attempt: Tesco's bot manager intermittently
+    serves an "Error" interstitial, and a new session often gets through."""
+    for attempt in range(BLOCK_RETRIES):
+        items = _crawl_once()
+        if items:
+            return items
+        if attempt < BLOCK_RETRIES - 1:
+            wait = BLOCK_BACKOFF_SECONDS * 2 ** attempt
+            print(f'No items (attempt {attempt + 1}/{BLOCK_RETRIES}); retrying with a new browser in {wait}s')
+            time.sleep(wait)
+    return []
+
+
+def _crawl_once() -> List[Dict]:
     items: List[Dict] = []
     driver = setup_driver(download_dir=path_out)
     try:
@@ -165,6 +181,8 @@ def save(items: List[Dict]):
 if __name__ == '__main__':
     items = crawl_tescocafe()
     print(f'Scraped {len(items)} items.')
+    if not items:
+        raise RuntimeError('No Tesco Cafe items scraped (bot block or site change); not writing an empty result')
     save(items)
     print(f'Saved: {file_json}')
     if os.path.exists(file_csv):

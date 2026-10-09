@@ -1,3 +1,10 @@
+"""OBSOLETE: Social Pub & Kitchen (successor to Common Rooms) no longer
+publishes allergen or nutrition data online. The site was replatformed, the
+Leeds Library page this script used now 404s (the 2026-10-05 weekly run failed
+on it), and https://www.socialpubandkitchen.co.uk/food-allergens tells
+customers to ask a member of staff (confirmed 2026-10-09). Removed from
+scraper_manifest.json.
+"""
 import json
 from datetime import date
 from pathlib import Path

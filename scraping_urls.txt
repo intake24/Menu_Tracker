@@ -4,8 +4,9 @@ https://www.mcdonalds.com/gb/en-gb/menu.html
 # Wetherspoons
 https://api.order.jdwetherspoon.com/api/v1/allergens/pubs/{pub_id}/food
 
-# Costa Coffee
+# Costa Coffee (menu page lists links; each product page https://www.costa.co.uk/menu/<slug> carries the allergen/ingredient/nutrition tables)
 https://www.costa.co.uk/menu
+https://www.costa.co.uk/menu/{slug}
 
 # Greggs
 https://production-digital.greggs.co.uk/api/v1.0/articles/masters?ExcludeUnpublished=true&ExcludeDuplicates=true&ExcludeHiddenFromMenu=true
@@ -34,7 +35,7 @@ https://www.caffenero.com/uk/menu
 # Wagamama
 https://www.wagamama.com/menu
 
-# Beefeater
+# Beefeater (closed 2026 -- Whitbread folded it into Premier Inn dining; the page now redirects to the Premier Inn homepage)
 https://www.beefeater.co.uk/en-gb/allergy-nutrition
 
 # Brewers Fayre (closed 2026 -- Whitbread folded it into Premier Inn dining)
@@ -125,7 +126,7 @@ https://www.benugo.com/sites/cafes/benugo-st-pancras/
 # Boost Juice
 https://www.boostjuicebars.co.uk/drinks/
 
-# Common Room
+# Common Room (successor Social Pub & Kitchen publishes no allergen/nutrition data online -- see https://www.socialpubandkitchen.co.uk/food-allergens; chain not in active manifest)
 https://tkmenus.com/commonroom/
 
 # Crussh (site down since 2025, chain not in active manifest)
