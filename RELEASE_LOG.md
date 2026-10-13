@@ -3,6 +3,17 @@
 Newest first. One section per day; one line per food chain touched.
 Add an entry here whenever a scraper, the manifest or a shared helper changes.
 
+## 2026-10-13
+
+Triage of the 2026-10-12 weekly run (77 of 79 scripts passed, 2 failed).
+
+- 54 Hungry Horse: the menu API answers a cold cache with only the first menu populated and `categories: null`
+  on the rest, which crashed the scraper (`TypeError: 'NoneType' object is not iterable`). Now retries up to 4 times
+  and raises if any menu is still empty. Verified through `Master_Compile` locally: 351 nutrition + 586 allergen rows.
+- 60 Marstons: the menus page sometimes does not hydrate on first load; the tab wait timed out, the error was
+  swallowed and the script exited 0 with an empty CSV. Now reloads up to 3 times and no longer swallows errors
+  (a mid-run failure exits 1). Verified through `Master_Compile` locally: 811 items in 403 s.
+
 ## 2026-10-10
 
 Found by the first manual run of the 2026-10-09 fixes on dm-build.

@@ -177,13 +177,14 @@ def save_data(items: List[Dict]) -> None:
         print('No items found; created empty CSV.')
 
 
-def crawl_marstons():
-    """Main function to crawl Marstons menu."""
-    driver = setup_driver()
-    all_records = []
-    try:
+def load_menu_buttons(driver, attempts=3):
+    """Load the menus page and return its menu tabs.
+
+    The page sometimes fails to hydrate (no cookie banner, no tabs) on the
+    first load; they normally appear within ~2s, so reload instead of failing.
+    """
+    for attempt in range(1, attempts + 1):
         driver.get(BASE_URL)
-        # Handle cookies
         try:
             cookie_button = WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.ID, "ccc-notify-accept"))
@@ -193,11 +194,21 @@ def crawl_marstons():
             time.sleep(1)
         except TimeoutException:
             print("Cookie banner not found or not clickable.")
+        try:
+            return WebDriverWait(driver, 20).until(
+                EC.presence_of_all_elements_located((By.XPATH, '//button[contains(@class, "TenKitesMenuBlock_menuSelect")]'))
+            )
+        except TimeoutException:
+            print(f"Menu tabs missing on load {attempt}/{attempts}.")
+    raise RuntimeError(f"Menu tabs never appeared at {BASE_URL}")
 
-        # Find all menu selection buttons
-        menu_buttons = WebDriverWait(driver, 5).until(
-            EC.presence_of_all_elements_located((By.XPATH, '//button[contains(@class, "TenKitesMenuBlock_menuSelect")]'))
-        )
+
+def crawl_marstons():
+    """Main function to crawl Marstons menu."""
+    driver = setup_driver()
+    all_records = []
+    try:
+        menu_buttons = load_menu_buttons(driver)
         print(f"Found {len(menu_buttons)} menus to process.")
 
         # Iterate through each menu button, click it, and scrape the content
@@ -207,9 +218,6 @@ def crawl_marstons():
             if i < len(buttons):
                 items = process_menu(driver, buttons[i])
                 all_records.extend(items)
-
-    except Exception as e:
-        print(f'Unexpected error during scraping: {e}')
 
     finally:
         save_data(all_records)
