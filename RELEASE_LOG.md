@@ -3,6 +3,17 @@
 Newest first. One section per day; one line per food chain touched.
 Add an entry here whenever a scraper, the manifest or a shared helper changes.
 
+## 2026-11-02
+
+Triage of the 2026-11-02 weekly run (75 of 79 scripts passed). Hungry Horse had failed every week since 10-12.
+
+- 54 Hungry Horse: the 10-13 retry never helped. The menu API leaves `categories: null` on some menus for
+  hours at a time (still null 30+ minutes after the API's own cache refreshed), so retrying only turned a
+  crash into a `RuntimeError`. Menus without categories are now skipped and logged; only an empty Main Menu
+  fails the chain. Verified through `Master_Compile` locally while the API was returning 3 null menus:
+  259 nutrition rows from Main, Sunday Roasts, Drinks and Breakfast. The NGCI, Kids' and Curry & Drink
+  Wednesday menus are missing from the nutrition output while the API withholds them.
+
 ## 2026-10-13
 
 Triage of the 2026-10-12 weekly run (77 of 79 scripts passed, 2 failed).

@@ -6,7 +6,6 @@ Bradmore Arms (SmartChef/menu-API site id 1953). Nutrition is kcal-only.
 
 import json
 import re
-import time
 from datetime import date
 
 import pandas as pd
@@ -34,25 +33,19 @@ def _get(url, **kwargs):
     return resp
 
 
-def _fetch_menus(attempts=4, delay=15):
-    """The menu API answers a cold cache with only the first menu populated and
-    `categories: null` on the rest; the next request is complete. Retry until
-    every menu has categories rather than ship a partial wave."""
-    for attempt in range(1, attempts + 1):
-        menus = _get(MENU_API).json()
-        empty = [m["name"] for m in menus if m.get("categories") is None]
-        if not empty:
-            return menus
-        print(f"Menu API attempt {attempt}/{attempts}: no categories for {empty}")
-        if attempt < attempts:
-            time.sleep(delay)
-    raise RuntimeError(f"Menu API still returned no categories for {empty}")
-
-
 def collect_nutrition():
+    """The menu API leaves `categories: null` on menus it is not serving
+    (observed for hours at a time, so retrying does not help). Skip and log
+    those; only an empty Main Menu is treated as a broken source."""
     rows = []
-    for menu in _fetch_menus():
-        for category in menu["categories"]:
+    menus = _get(MENU_API).json()
+    skipped = [m["name"] for m in menus if m.get("categories") is None]
+    if "Main Menu" in skipped:
+        raise RuntimeError("Menu API returned no categories for the Main Menu")
+    if skipped:
+        print(f"Skipping menus the API returned without categories: {skipped}")
+    for menu in menus:
+        for category in menu.get("categories") or []:
             for product in category["products"]:
                 for portion in product.get("portions") or [{}]:
                     rows.append({

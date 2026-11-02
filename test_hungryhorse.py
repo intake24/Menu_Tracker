@@ -1,4 +1,6 @@
+import contextlib
 import importlib.util
+import io
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,7 +25,7 @@ hh = load_hungryhorse()
 
 PRODUCT = {"name": "Soup", "portions": [{"name": "Standard", "calories": 336, "price": 4.29}]}
 FULL = [
-    {"name": "Main", "categories": [{"name": "Starters", "products": [PRODUCT]}]},
+    {"name": "Main Menu", "categories": [{"name": "Starters", "products": [PRODUCT]}]},
     {"name": "Kids", "categories": [{"name": "Kids", "products": [PRODUCT]}]},
 ]
 COLD = [FULL[0], {"name": "Kids", "categories": None}]
@@ -36,19 +38,20 @@ def response(payload):
 
 
 class CollectNutritionTests(unittest.TestCase):
-    @patch.object(hh.time, "sleep")
     @patch.object(hh, "_get")
-    def test_retries_when_a_cold_api_returns_null_categories(self, get, sleep):
-        get.side_effect = [response(COLD), response(FULL)]
-        rows = hh.collect_nutrition()
-        self.assertEqual({r["menu"] for r in rows}, {"Main", "Kids"})
-        self.assertEqual(get.call_count, 2)
-
-    @patch.object(hh.time, "sleep")
-    @patch.object(hh, "_get")
-    def test_fails_loudly_rather_than_shipping_a_partial_menu(self, get, sleep):
+    def test_skips_and_logs_menus_the_api_returns_without_categories(self, get):
         get.return_value = response(COLD)
-        with self.assertRaisesRegex(RuntimeError, "Kids"):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rows = hh.collect_nutrition()
+        self.assertEqual({r["menu"] for r in rows}, {"Main Menu"})
+        self.assertIn("Kids", out.getvalue())
+        self.assertEqual(get.call_count, 1)
+
+    @patch.object(hh, "_get")
+    def test_fails_when_the_main_menu_has_no_categories(self, get):
+        get.return_value = response([{"name": "Main Menu", "categories": None}, FULL[1]])
+        with self.assertRaisesRegex(RuntimeError, "Main Menu"):
             hh.collect_nutrition()
 
 
