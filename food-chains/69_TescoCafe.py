@@ -6,7 +6,9 @@ from datetime import date
 from typing import Dict, List
 
 import pandas as pd
+from fake_useragent import UserAgent
 from lxml import html
+from pypdf import PdfReader
 
 from define_collection_wave import folder
 from helpers import create_folder, setup_driver
@@ -107,7 +109,7 @@ def parse_category_page(driver, url: str, category_label: str) -> List[Dict]:
     return records
 
 
-def download_allergen_pdf(driver) -> None:
+def download_allergen_pdf(driver):
     """Find and download the current GB allergen matrix PDF.
 
     The page (already loaded by get_category_links) embeds direct links to
@@ -120,7 +122,7 @@ def download_allergen_pdf(driver) -> None:
     candidates = [u for u in urls if 'allergen' in u.lower() and 'ni+allergen' not in u.lower()]
     if not candidates:
         print('No GB allergen matrix PDF link found.')
-        return
+        return None
     pdf_url = candidates[0]
     before = {f for f in os.listdir(path_out) if f.lower().endswith('.pdf')}
     driver.get(pdf_url)
@@ -129,9 +131,36 @@ def download_allergen_pdf(driver) -> None:
         finished = {f for f in after if not f.endswith('.crdownload')}
         if finished - before:
             print(f'Downloaded allergen PDF: {sorted(finished - before)}')
-            return
+            return os.path.join(path_out, sorted(finished - before)[0])
         time.sleep(1)
     print('Timed out waiting for allergen PDF download.')
+    return None
+
+
+def _key(name: str) -> str:
+    """Match key: drop '(v)'/'(vg)' tags, punctuation and case differences."""
+    return re.sub(r'[^a-z0-9]+', ' ', re.sub(r'\([^)]*\)', '', name.lower().replace('&', ' and '))).strip()
+
+
+def pdf_kcal(pdf_path: str) -> Dict[str, str]:
+    """Map lower-cased item name -> 'N kcal' from the allergen matrix.
+
+    tesco.com no longer shows calories on the menu pages; they are only
+    published per serving in the matrix PDF (rows like 'Item name 730 kcal Y Y ...').
+    """
+    text = '\n'.join(p.extract_text() for p in PdfReader(pdf_path).pages)
+    rows = re.findall(r'^\s*(\S.*?)\s+(\d+) kcal', text, re.M)
+    return {_key(name): f'{kcal}kcal' for name, kcal in rows}
+
+
+def fill_kcal(items: List[Dict], pdf_path) -> None:
+    if not pdf_path:
+        return
+    table = pdf_kcal(pdf_path)
+    for item in items:
+        if not item['kcal']:
+            item['kcal'] = table.get(_key(item['item_name']), '')
+    print(f"kcal filled for {sum(bool(i['kcal']) for i in items)}/{len(items)} items")
 
 
 def crawl_tescocafe() -> List[Dict]:
@@ -150,7 +179,11 @@ def crawl_tescocafe() -> List[Dict]:
 
 def _crawl_once() -> List[Dict]:
     items: List[Dict] = []
-    driver = setup_driver(download_dir=path_out)
+    # setup_driver picks a random UA that can be a mobile one; Tesco serves
+    # its "Error" interstitial to those (mobile UA on a desktop browser), so
+    # force a desktop Chrome UA (the last --user-agent flag wins).
+    desktop_ua = UserAgent(browsers=['Chrome'], platforms='desktop').random
+    driver = setup_driver(download_dir=path_out, extra_chrome_args=[f'--user-agent={desktop_ua}'])
     try:
         cats = get_category_links(driver)
         if not cats:
@@ -165,7 +198,7 @@ def _crawl_once() -> List[Dict]:
         # Re-fetch the landing page (parse_category_page navigated away from it)
         # so the PDF links are back in the page source before downloading.
         fetch(driver, BASE_URL)
-        download_allergen_pdf(driver)
+        fill_kcal(items, download_allergen_pdf(driver))
     finally:
         driver.quit()
     return items

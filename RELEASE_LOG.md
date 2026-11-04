@@ -3,6 +3,13 @@
 Newest first. One section per day; one line per food chain touched.
 Add an entry here whenever a scraper, the manifest or a shared helper changes.
 
+## 2026-11-04
+
+- 69 Tesco Cafe: failed every retry on tesco.com's "Error" page. `setup_driver` picks a random UA and the mobile
+  ones (iPhone) always get the interstitial, desktop ones load; the scraper now forces a desktop Chrome UA.
+  tesco.com also dropped calories from the menu pages, so `kcal` is now filled from the allergen matrix PDF
+  (exact item-name matches only, ~22 of 57; variants/wrapped names stay blank, the PDF is still saved alongside).
+
 ## 2026-11-02
 
 Triage of the 2026-11-02 weekly run (75 of 79 scripts passed). Hungry Horse had failed every week since 10-12.
