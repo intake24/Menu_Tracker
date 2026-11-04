@@ -322,11 +322,35 @@ def _extract_food_name_from_card(card, driver) -> str:
         except Exception:
             continue
 
+def _load_food_cards(driver, menu_url, attempts=3):
+    """Open a menu and return (driver, cards). A menu whose cards never render is
+    reloaded with a longer wait; (driver, []) after the last attempt."""
+    by, sel = (By.XPATH, "//div[contains(@class,'MenuItem__wrapper')]")
+    for attempt in range(1, attempts + 1):
+        driver = safe_get(driver, menu_url, wait_timeout=8)
+        try:
+            logger.debug("Waiting for food cards with selector: %s", sel)
+            return driver, WebDriverWait(driver, 8 + 12 * (attempt - 1)).until(
+                EC.presence_of_all_elements_located((by, sel))
+            )
+        except TimeoutException:
+            logger.warning("No food cards for %s (attempt %d/%d)", menu_url, attempt, attempts)
+    return driver, []
+
+
+def _require_all_menus(empty_menus):
+    """A menu with no items is a failed scrape, not a quiet success: every menu
+    has had items in every run so far, and a partial file still passes validation."""
+    if empty_menus:
+        raise RuntimeError(f"No food cards found for menus: {empty_menus}")
+
+
 def crawl_nutrition():
     menu_driver = setup_driver()
     set_driver_timeouts(menu_driver)
     try_click_accept_cookies(menu_driver)
     results = []
+    empty_menus = []
 
     try:
         menu_driver.get(START_URL)
@@ -347,17 +371,10 @@ def crawl_nutrition():
             try:
                 # Navigate to menu and find food cards (inlined from former find_food_cards)
                 logger.info("Navigating to menu URL: %s", menu_url)
-                menu_driver = safe_get(menu_driver, menu_url, wait_timeout=8)
-                by, sel = (By.XPATH, "//div[contains(@class,'MenuItem__wrapper')]")
-                try:
-                    logger.debug("Waiting for food cards with selector: %s", sel)
-                    food_cards = WebDriverWait(menu_driver, 8).until(
-                        EC.presence_of_all_elements_located((by, sel))
-                    )
-                    logger.info("Found %d food cards", len(food_cards))
-                except TimeoutException:
-                    logger.warning("Selector timed out")
-                    food_cards = []
+                menu_driver, food_cards = _load_food_cards(menu_driver, menu_url)
+                if not food_cards:
+                    empty_menus.append(menu_url.rstrip('/').split('/')[-1])
+                logger.info("Found %d food cards", len(food_cards))
                 logger.info("Found %d foods in menu %d, url: %s", len(food_cards), idx+1, menu_url)
                 for f_idx, card in enumerate(food_cards):
                     if f_idx % 10 == 0:
@@ -411,6 +428,7 @@ def crawl_nutrition():
         logger.error('Error during scraping: %s', e)
     finally:
         menu_driver.quit()
+    _require_all_menus(empty_menus)
 
 
 if __name__ == '__main__':

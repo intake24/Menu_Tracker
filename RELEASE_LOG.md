@@ -13,6 +13,22 @@ Triage of the 2026-11-02 weekly run (75 of 79 scripts passed). Hungry Horse had 
   fails the chain. Verified through `Master_Compile` locally while the API was returning 3 null menus:
   259 nutrition rows from Main, Sunday Roasts, Drinks and Breakfast. The NGCI, Kids' and Curry & Drink
   Wednesday menus are missing from the nutrition output while the API withholds them.
+- 53 Harvester: on 11-02 only the first of ten menus was scraped (55 rows, was 548) and the run still passed,
+  because every other menu's food cards timed out, were logged as a warning and skipped, and validation only
+  checks the file is non-empty. A menu whose cards do not render is now reloaded up to 3 times with a longer
+  wait, and the script exits non-zero if any menu still has none. Root cause of the missing cards not found
+  (logs are not kept for passing runs). Verified through `Master_Compile` locally: 546 rows, all 10 menus.
+- 60 Marstons: the 10-13 reload did not help. The site's CloudFront intermittently answers the menus page with
+  "403 ERROR The request could not be satisfied", and reloading in the same browser stayed blocked while fresh
+  browsers loaded fine. Retries now back off 30/60/90 s in a new browser, and the final error (and every missed
+  attempt) names the page title. Verified through `Master_Compile` locally: 788 items. The block is intermittent,
+  so a clean local run does not prove the new retries beat it.
+- 9 Subway: the allergen PDF glob was case-sensitive, so `UKallergeninformationC5.pdf` failed validation although
+  it downloaded. Now `*[Aa]llergen*[Ii]nformation*.pdf`; the filename changes weekly.
+- 63 Pieminister: temporarily down. The restaurants still operate, but Pieminister publishes no nutrition
+  information right now. `shop.pieminister.co.uk` is gone (Cloudflare error 1001 on every path) and the
+  replacement Wix site has only a restaurant allergen PDF with no calorie or nutrient figures. Script renamed
+  `63_Pieminister_obsolete.py` and removed from the manifest (78 scripts); restore it if nutrition data returns.
 
 ## 2026-10-13
 

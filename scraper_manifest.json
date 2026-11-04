@@ -57,7 +57,7 @@
       "script": "9_Subway.py",
       "outputs": [
         "9_Subway_*/*NutritionalInformation*.pdf",
-        "9_Subway_*/*Allergen*Information*.pdf"
+        "9_Subway_*/*[Aa]llergen*[Ii]nformation*.pdf"
       ]
     },
     {
@@ -355,13 +355,6 @@
       "outputs": [
         "61_MorrisonsCafe_*/morrisons_cafe_items.json",
         "61_MorrisonsCafe_*/morrisons_cafe_items.csv"
-      ]
-    },
-    {
-      "script": "63_Pieminister.py",
-      "outputs": [
-        "63_Pieminister_*/pieminister_items.json",
-        "63_Pieminister_*/pieminister_items.csv"
       ]
     },
     {

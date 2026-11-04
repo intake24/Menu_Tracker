@@ -173,7 +173,7 @@ https://menus.tenkites.com/marstons/communityfood11
 https://www.morrisons.com/cafe/menudata/{location}/Category/0?timeSlot={time_slot}&firstCall=true
 https://www.morrisons.com/cafe/menudata/306EI/Category/{cat_id}?timeSlot={time_slot}
 
-# Pieminister
+# Pieminister (temporarily down 2026-11 -- restaurants still operate but publish no nutrition data; shop.pieminister.co.uk is gone)
 https://shop.pieminister.co.uk
 https://pieminister.co.uk/pies/
 https://pieminister.co.uk/food/patties/

@@ -177,12 +177,15 @@ def save_data(items: List[Dict]) -> None:
         print('No items found; created empty CSV.')
 
 
-def load_menu_buttons(driver, attempts=3):
-    """Load the menus page and return its menu tabs.
+def load_menu_buttons(driver, attempts=4):
+    """Load the menus page and return (driver, menu tabs).
 
-    The page sometimes fails to hydrate (no cookie banner, no tabs) on the
-    first load; they normally appear within ~2s, so reload instead of failing.
+    The site's CloudFront sometimes answers with "403 ERROR The request could
+    not be satisfied" instead of the page, so no cookie banner or tabs ever
+    appear, and reloading in the same browser stayed blocked while fresh
+    browsers loaded fine. So back off 30s, 60s, 90s and retry in a new browser.
     """
+    title = ""
     for attempt in range(1, attempts + 1):
         driver.get(BASE_URL)
         try:
@@ -195,12 +198,19 @@ def load_menu_buttons(driver, attempts=3):
         except TimeoutException:
             print("Cookie banner not found or not clickable.")
         try:
-            return WebDriverWait(driver, 20).until(
+            buttons = WebDriverWait(driver, 20).until(
                 EC.presence_of_all_elements_located((By.XPATH, '//button[contains(@class, "TenKitesMenuBlock_menuSelect")]'))
             )
+            return driver, buttons
         except TimeoutException:
-            print(f"Menu tabs missing on load {attempt}/{attempts}.")
-    raise RuntimeError(f"Menu tabs never appeared at {BASE_URL}")
+            title = driver.title
+            print(f"Menu tabs missing on load {attempt}/{attempts}; page title: {title!r}")
+            if attempt < attempts:
+                time.sleep(30 * attempt)
+                driver.quit()
+                driver = setup_driver()
+    driver.quit()
+    raise RuntimeError(f"Menu tabs never appeared at {BASE_URL}; last page title: {title!r}")
 
 
 def crawl_marstons():
@@ -208,7 +218,7 @@ def crawl_marstons():
     driver = setup_driver()
     all_records = []
     try:
-        menu_buttons = load_menu_buttons(driver)
+        driver, menu_buttons = load_menu_buttons(driver)
         print(f"Found {len(menu_buttons)} menus to process.")
 
         # Iterate through each menu button, click it, and scrape the content
@@ -221,7 +231,10 @@ def crawl_marstons():
 
     finally:
         save_data(all_records)
-        driver.quit()
+        try:
+            driver.quit()
+        except Exception:
+            pass  # already closed by load_menu_buttons
         print(f'\nScraping completed. Total items: {len(all_records)}')
 
 

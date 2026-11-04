@@ -1,3 +1,13 @@
+"""TEMPORARILY OBSOLETE: Pieminister publishes no nutrition data right now.
+The restaurants still trade. shop.pieminister.co.uk, the page this script scraped, is
+gone (Cloudflare error 1001 on every path, confirmed 2026-11-02; the weekly runs
+since 2026-10-26 found 0 product links). The replacement Wix site
+(https://www.pieminister.co.uk) has no nutrition tables; its only relevant file is
+the restaurant allergen PDF linked from /allergens (issue 62, 16/09/2026), which
+has no calorie or nutrient figures. Removed from scraper_manifest.json.
+To restore: re-check https://www.pieminister.co.uk/pies and /allergens for
+nutrition data, then rewrite this script, rename it back and re-add the manifest entry.
+"""
 import os
 import json
 from datetime import date
