@@ -3,6 +3,22 @@
 Newest first. One section per day; one line per food chain touched.
 Add an entry here whenever a scraper, the manifest or a shared helper changes.
 
+## 2026-11-16
+
+Triage of the 2026-11-16 weekly run (74 of 78 scripts passed); the four failures were re-run into the same collection folder.
+
+- 36 Bill's: `menus.tenkites.com/bills/bills03` now says "No menus have been published to this page" (0 menu GUIDs,
+  empty outputs). `bills02` is the page that lists every menu; the scraper now starts there (569 items, all with kcal)
+  and raises when no menu GUIDs are found instead of writing empty files.
+- 52 Five Guys: the landing page answered 403 once from dm-build (200 every time from elsewhere, any user agent).
+  Not reproducible, so it now retries a 403 up to 3 times with backoff before failing.
+- 54 Hungry Horse: no code change. The menu API returned `categories: null` for the Main Menu during the run
+  (the fail-loud check from 11-02 worked as intended) and was healthy hours later; re-running fixes it.
+  SmartChef has allergens only, so there is no calorie fallback.
+- 70 Cornish Bakery: the products page answered 429 and `combo_PDFDownload` silently skipped the PDF (exit 0, then
+  the manifest's `*Allergen*.pdf` check failed). `combo_PDFDownload` now retries 429/5xx up to 3 times (honouring
+  `Retry-After`); this helps every chain that uses it.
+
 ## 2026-11-04
 
 - 69 Tesco Cafe: failed every retry on tesco.com's "Error" page. `setup_driver` picks a random UA and the mobile

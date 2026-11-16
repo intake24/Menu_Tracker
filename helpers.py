@@ -405,12 +405,18 @@ def combo_PDFDownload(rest_name, url, keyword='pdf', prex=None, verify=True, tim
     # Use live collection folder from define_collection_wave when available
     base_folder = getattr(dcw, 'folder', None)
     path = create_folder(rest_name, base_folder)
-    try:
-        html = requests.get(url, headers=headers, verify=verify, timeout=timeout)
-    except requests.RequestException as e:
-        logger.error(f"Request error for {url}: {e}")
-        return
-    logger.info(f'HTTP status {html.status_code} for {url}')
+    for attempt in range(1, 4):
+        try:
+            html = requests.get(url, headers=headers, verify=verify, timeout=timeout)
+        except requests.RequestException as e:
+            logger.error(f"Request error for {url}: {e}")
+            return
+        logger.info(f'HTTP status {html.status_code} for {url}')
+        # 429/5xx are usually transient: back off and retry instead of silently skipping the PDFs
+        if html.status_code != 429 and html.status_code < 500 or attempt == 3:
+            break
+        retry_after = html.headers.get('Retry-After', '')
+        sleep(min(int(retry_after), 60) if retry_after.isdigit() else 15 * attempt)
     if html.status_code != 200:
         logger.warning(f'Non-200 status {html.status_code} for {url}; aborting')
         return

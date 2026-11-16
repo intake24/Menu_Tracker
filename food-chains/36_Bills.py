@@ -12,7 +12,8 @@ import pandas as pd
 from define_collection_wave import folder
 from helpers import create_folder
 
-BASE_START = "https://menus.tenkites.com/bills/bills03"
+# bills03 now says "No menus have been published to this page"; bills02 lists every menu.
+BASE_START = "https://menus.tenkites.com/bills/bills02"
 BASE_MENU = "https://menus.tenkites.com/bills/bills02?cl=true&mguid={mguid}&internalrequest=true"
 REST_NAME = "Bill's"
 
@@ -132,6 +133,8 @@ def crawl_bills() -> List[Dict]:
     home = fetch_html(BASE_START)
     guids = get_menu_guids(home)
     print(f"Found {len(guids)} menu GUIDs")
+    if not guids:
+        raise RuntimeError(f"No menu GUIDs at {BASE_START}; the page may have been unpublished or moved")
 
     all_records: List[Dict] = []
     for g in guids:
